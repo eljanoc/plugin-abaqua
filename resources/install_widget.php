@@ -85,14 +85,6 @@ function abaqua_remove_runtime_dependencies() {
         }
     }
 
-    $cacheRoot = '/var/www/.cache';
-    if (is_dir($cacheRoot)) {
-        $entries = array_diff(scandir($cacheRoot), array('.', '..'));
-        if (empty($entries)) {
-            com_shell::execute(system::getCmdSudo() . 'rmdir ' . escapeshellarg($cacheRoot) . ' 2>&1');
-        }
-    }
-
     return true;
 }
 
