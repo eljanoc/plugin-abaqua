@@ -193,6 +193,14 @@ chown -R www-data:www-data "$VENV_DIR" || true
 chown -R www-data:www-data "/var/www/.cache" || true
 write_progress 100
 
+echo "-> Installation du widget dashboard Abaqua..."
+if php "$SCRIPT_DIR/install_widget.php"; then
+    echo "-> Widget dashboard Abaqua installé."
+else
+    echo "Erreur : installation du widget dashboard Abaqua impossible."
+    exit 1
+fi
+
 echo "********************************************************"
 echo "* Installation terminée avec succès !                  *"
 echo "********************************************************"

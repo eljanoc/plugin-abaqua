@@ -36,4 +36,19 @@ function abaqua_remove_widget() {
     return true;
 }
 
+if (PHP_SAPI === 'cli' && isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) === __FILE__) {
+    require_once dirname(__FILE__) . '/../../../core/php/core.inc.php';
+
+    try {
+        abaqua_install_widget();
+        log::add('abaqua', 'info', 'Widget Abaqua installé via le script de dépendances');
+        echo "Widget Abaqua installé avec succès\n";
+        exit(0);
+    } catch (Exception $e) {
+        log::add('abaqua', 'error', 'Erreur installation widget via dépendances : ' . $e->getMessage());
+        fwrite(STDERR, "Erreur installation widget Abaqua : " . $e->getMessage() . "\n");
+        exit(1);
+    }
+}
+
 ?>
