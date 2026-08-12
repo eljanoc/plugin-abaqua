@@ -6,14 +6,14 @@
 
     <script>
         window.ouvrirLogAbaqua_#id# = function() {
-            var version = 27; 
-            
-            // --- 1. DÉTECTION DU NOM DIRECTEMENT SUR LE DASHBOARD --- //
+            var version = 28; 
             var cmdDiv = document.querySelector('.cmd[data-cmd_id="#id#"]');
-            var equipementNom = "";
-            
+            var nomDuLog = '';
+            var nomDuLogAlternatif = '';
+            var equipementNom = '';
+
             if (cmdDiv) {
-                var tuile = cmdDiv.closest('.eqLogic');
+                var tuile = cmdDiv.closest('.eqLogic-widget, .eqLogic, [data-eqLogic_id], [data-eqlogic_id]');
                 if (tuile) {
                     var titreElement = tuile.querySelector('.widget-name a') || tuile.querySelector('.widget-name');
                     if (titreElement) {
@@ -23,51 +23,115 @@
             }
 
             if (!equipementNom) {
-                equipementNom = prompt("Impossible de détecter le nom de l'équipement. Saisis-le manuellement (ex: maison#Kyrnolia1) :");
-                if (!equipementNom) return; 
+                var fallbackTuile = cmdDiv ? cmdDiv.closest('.eqLogic') : null;
+                if (fallbackTuile) {
+                    var fallbackTitreElement = fallbackTuile.querySelector('.widget-name a') || fallbackTuile.querySelector('.widget-name');
+                    if (fallbackTitreElement) {
+                        equipementNom = fallbackTitreElement.getAttribute('title') || fallbackTitreElement.textContent.trim();
+                    }
+                }
             }
-            
-            // --- 2. FORMATAGE ET INVERSION DU NOM (NOUVEAU FORMAT) --- //
-            var mots = equipementNom.trim().split(/\s+/);
-            var nomFormate = equipementNom;
-            
-            if (mots.length === 2) {
-                // Inversion avec un simple tiret du bas
-                nomFormate = mots[1] + '_' + mots[0];
+
+            if (equipementNom) {
+                nomDuLog = 'abaqua_' + equipementNom
+                    .replace(/[^A-Za-z0-9._-]+/g, '_')
+                    .replace(/_{2,}/g, '_')
+                    .replace(/^_+|_+$/g, '');
+
+                var mots = equipementNom.trim().split(/\s+/);
+                if (mots.length === 2) {
+                    nomDuLogAlternatif = 'abaqua_' + (mots[1] + '_' + mots[0])
+                        .replace(/[^A-Za-z0-9._-]+/g, '_')
+                        .replace(/_{2,}/g, '_')
+                        .replace(/^_+|_+$/g, '');
+                }
             } else {
-                // Remplacement des espaces ou dièses par un simple tiret du bas
-                nomFormate = equipementNom.replace(/[ #]/g, '_');
+                equipementNom = prompt("Impossible de détecter automatiquement le log. Saisis le nom affiché de l'équipement :");
+                if (!equipementNom) return;
+
+                nomDuLog = 'abaqua_' + equipementNom
+                    .replace(/[^A-Za-z0-9._-]+/g, '_')
+                    .replace(/_{2,}/g, '_')
+                    .replace(/^_+|_+$/g, '');
+
+                var motsPrompt = equipementNom.trim().split(/\s+/);
+                if (motsPrompt.length === 2) {
+                    nomDuLogAlternatif = 'abaqua_' + (motsPrompt[1] + '_' + motsPrompt[0])
+                        .replace(/[^A-Za-z0-9._-]+/g, '_')
+                        .replace(/_{2,}/g, '_')
+                        .replace(/^_+|_+$/g, '');
+                }
             }
-            
-            // Construction finale : abaqua_maison_Kyrnolia1
-            var nomDuLog = 'abaqua_' + nomFormate; 
+
+            var logActif = nomDuLog;
+
+            function normaliserContenuLog(data) {
+                var brut = data && data.result !== undefined ? data.result : data;
+                var contenu = '';
+
+                if (Array.isArray(brut)) {
+                    contenu = brut.join('\n');
+                } else if (typeof brut === 'object') {
+                    contenu = JSON.stringify(brut, null, 2);
+                } else {
+                    contenu = String(brut || '');
+                }
+
+                return contenu.replace(/\\n/g, '\n').replace(/\\r/g, '');
+            }
+
+            function chargerLog(logName, successCallback, errorCallback) {
+                $.ajax({
+                    url: 'core/ajax/log.ajax.php',
+                    type: 'POST',
+                    dataType: 'json',
+                    data: {
+                        action: 'get',
+                        logfile: logName,
+                        log: logName
+                    },
+                    success: function(data) {
+                        successCallback(data, normaliserContenuLog(data), logName);
+                    },
+                    error: errorCallback
+                });
+            }
+
+            function logEstVideOuIntrouvable(data, contenu) {
+                if (data && data.state === 'error') {
+                    return true;
+                }
+
+                return !contenu || contenu.trim() === '';
+            }
 
             // --- APPEL INITIAL --- //
-            $.ajax({
-                url: 'core/ajax/log.ajax.php', 
-                type: 'POST',
-                dataType: 'json',
-                data: { 
-                    action: 'get', 
-                    logfile: nomDuLog,
-                    log: nomDuLog
-                },
-                success: function(data) {
-                    var brut = data.result !== undefined ? data.result : data;
-                    var contenu = "";
-                    
-                    if (Array.isArray(brut)) {
-                        contenu = brut.join('\n');
-                    } else if (typeof brut === 'object') {
-                        contenu = JSON.stringify(brut, null, 2);
-                    } else {
-                        contenu = String(brut);
-                    }
-                    
-                    contenu = contenu.replace(/\\n/g, '\n').replace(/\\r/g, '');
+            chargerLog(nomDuLog, function(data, contenu, logName) {
+                if (nomDuLogAlternatif && nomDuLogAlternatif !== logName && logEstVideOuIntrouvable(data, contenu)) {
+                    chargerLog(nomDuLogAlternatif, function(altData, altContenu, altLogName) {
+                        if (!logEstVideOuIntrouvable(altData, altContenu)) {
+                            afficherLog(altContenu, altLogName);
+                            return;
+                        }
+
+                        afficherLog(contenu, logName);
+                    }, function() {
+                        afficherLog(contenu, logName);
+                    });
+                    return;
+                }
+
+                afficherLog(contenu, logName);
+            }, function(xhr, status, error) {
+                alert("Erreur AJAX : " + error);
+            });
+
+            function afficherLog(contenuInitial, logName) {
+                    logActif = logName;
+                    var contenu = contenuInitial;
 
                     if (!contenu || contenu.trim() === '') {
-                        contenu = 'Le log ' + nomDuLog + ' est vide.';
+                        contenu = 'Le log ' + logActif + ' est vide.';
                     }
                     
                     // --- FENÊTRE --- //
@@ -102,7 +166,7 @@
                     header.style.marginBottom = '10px';
                     
                     var titre = document.createElement('h3');
-                    titre.innerText = 'Log : ' + nomDuLog + ' (Widget V' + version + ')';
+                    titre.innerText = 'Log : ' + logActif + ' (Widget V' + version + ')';
                     titre.style.color = '#333333';
                     titre.style.margin = '0'; 
                     
@@ -147,25 +211,14 @@
                             url: 'core/ajax/log.ajax.php',
                             type: 'POST',
                             dataType: 'json',
-                            data: { action: 'get', logfile: nomDuLog, log: nomDuLog },
+                            data: { action: 'get', logfile: logActif, log: logActif },
                             success: function(updateData) {
                                 if (updateData.state === 'error') return;
 
-                                var newBrut = updateData.result !== undefined ? updateData.result : updateData;
-                                var newContenu = "";
-                                
-                                if (Array.isArray(newBrut)) {
-                                    newContenu = newBrut.join('\n');
-                                } else if (typeof newBrut === 'object') {
-                                    newContenu = JSON.stringify(newBrut, null, 2);
-                                } else {
-                                    newContenu = String(newBrut);
-                                }
-                                
-                                newContenu = newContenu.replace(/\\n/g, '\n').replace(/\\r/g, '');
+                                var newContenu = normaliserContenuLog(updateData);
                                 
                                 if (!newContenu || newContenu.trim() === '') {
-                                    newContenu = 'Le log ' + nomDuLog + ' est vide.';
+                                    newContenu = 'Le log ' + logActif + ' est vide.';
                                 }
                                 
                                 if (texte.innerText !== newContenu) {
@@ -184,12 +237,12 @@
                                 url: 'core/ajax/log.ajax.php',
                                 type: 'POST',
                                 dataType: 'json',
-                                data: { action: 'remove', log: nomDuLog }, 
+                                data: { action: 'remove', log: logActif }, 
                                 success: function(response) {
                                     if (response && response.state === 'error') {
                                         alert("Erreur : " + (response.result || JSON.stringify(response)));
                                     } else {
-                                        texte.innerText = 'Le log ' + nomDuLog + ' est vide.';
+                                        texte.innerText = 'Le log ' + logActif + ' est vide.';
                                     }
                                 }
                             });
@@ -207,11 +260,7 @@
                     document.body.appendChild(fond);
 
                     texte.scrollTop = 0;
-                },
-                error: function(xhr, status, error) {
-                    alert("Erreur AJAX : " + error);
                 }
-            });
         };
     </script>
 </div>
