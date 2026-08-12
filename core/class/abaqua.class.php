@@ -54,9 +54,25 @@ class abaqua extends eqLogic {
 
         return self::buildEquipmentLogNameFromHumanName($eqLogic->getHumanName());
     }
+
+    private static function cleanupStrayDependencyLogsInAjaxDir() {
+        $ajaxDir = realpath(dirname(__FILE__) . '/../../../../core/ajax');
+        if ($ajaxDir === false) {
+            return;
+        }
+
+        foreach (array('abaqua_dep', 'abaqua_update') as $name) {
+            $candidate = $ajaxDir . '/' . $name;
+            if (is_file($candidate)) {
+                @unlink($candidate);
+            }
+        }
+    }
+
     public static function dependancy_info() {
+        self::cleanupStrayDependencyLogsInAjaxDir();
         $return = array();
-        $return['log'] = '/var/www/html/log/abaqua_dep';
+        $return['log'] = log::getPathToLog('abaqua_dep');
         $return['progress_file'] = jeedom::getTmpFolder('abaqua') . '/dependancy';
         
         if (file_exists(jeedom::getTmpFolder('abaqua') . '/dependancy')) {
@@ -70,10 +86,11 @@ class abaqua extends eqLogic {
     }
 
     public static function dependancy_install() {
+        self::cleanupStrayDependencyLogsInAjaxDir();
         log::remove('abaqua_dep');
         return array(
             'script' => dirname(__FILE__) . '/../../resources/install.sh ' . jeedom::getTmpFolder('abaqua') . '/dependancy', 
-            'log' => '/var/www/html/log/abaqua_dep'
+            'log' => log::getPathToLog('abaqua_dep')
         );
     }
 
