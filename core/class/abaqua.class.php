@@ -28,7 +28,7 @@ class abaqua extends eqLogic {
 
     public static function dependancy_info() {
         $return = array();
-        $return['log'] = 'abaqua_update';
+        $return['log'] = 'abaqua_dep';
         $return['progress_file'] = jeedom::getTmpFolder('abaqua') . '/dependancy';
         
         if (file_exists(jeedom::getTmpFolder('abaqua') . '/dependancy')) {
@@ -42,10 +42,10 @@ class abaqua extends eqLogic {
     }
 
     public static function dependancy_install() {
-        log::remove('abaqua_update');
+        log::remove('abaqua_dep');
         return array(
             'script' => dirname(__FILE__) . '/../../resources/install.sh ' . jeedom::getTmpFolder('abaqua') . '/dependancy', 
-            'log' => 'abaqua_update'
+            'log' => 'abaqua_dep'
         );
     }
 
