@@ -2,15 +2,16 @@
     "id": "abaqua",
     "name": "Abaqua",
     "description": "Récupération automatique de la consommation d'eau quotidienne depuis votre espace client (Kyrnolia, Veolia) avec intégration précise dans l'historique Jeedom.",
+    "version": "1.0.0",
     "licence": "AGPL",
     "author": "eljano",
-    "require": "4.2",
+    "require": "4.4",
     "category": "energy",
     "hasDependency": true,
     "hasOwnDaemon": false,
     "maxDependancyInstallTime": 120,
-    "changelog": "",
-    "documentation": "",
-    "issue": "",
-    "link": ""
+    "changelog": "https://github.com/eljanoc/plugin-abaqua/blob/stable/docs/fr_FR/changelog.md",
+    "documentation": "https://github.com/eljanoc/plugin-abaqua/blob/stable/docs/fr_FR/index.md",
+    "issue": "https://github.com/eljanoc/plugin-abaqua/issues",
+    "link": "https://github.com/eljanoc/plugin-abaqua"
 }
