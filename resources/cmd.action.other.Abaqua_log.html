@@ -1,12 +1,12 @@
 <div class="cmd cmd-widget" data-type="action" data-subtype="other" data-cmd_id="#id#">
     
-    <a class="btn btn-sm btn-default" style="cursor:pointer;" onclick="window.ouvrirLogMyWater_#id#()">
-        <i class="fas fa-water"></i> Voir le Log MyWater
+    <a class="btn btn-sm btn-default" style="cursor:pointer;" onclick="window.ouvrirLogAbaqua_#id#()">
+        Log
     </a>
 
     <script>
-        window.ouvrirLogMyWater_#id# = function() {
-            var version = 25; 
+        window.ouvrirLogAbaqua_#id# = function() {
+            var version = 27; 
             
             // --- 1. DÉTECTION DU NOM DIRECTEMENT SUR LE DASHBOARD --- //
             var cmdDiv = document.querySelector('.cmd[data-cmd_id="#id#"]');

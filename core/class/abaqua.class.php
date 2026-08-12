@@ -79,6 +79,19 @@ class abaqua extends eqLogic {
             $cmd_conso->setIsHistorized(1);
             $cmd_conso->save();
         }
+
+        $cmd_log = $this->getCmd(null, 'log');
+        if (!is_object($cmd_log)) {
+            $cmd_log = new abaquaCmd();
+            $cmd_log->setLogicalId('log');
+            $cmd_log->setName('Log');
+            $cmd_log->setType('action');
+            $cmd_log->setSubType('other');
+            $cmd_log->setEqLogic_id($this->getId());
+            $cmd_log->setIsVisible(1);
+            $cmd_log->setTemplate('dashboard', 'customtemp::Abaqua_log');
+            $cmd_log->save();
+        }
     }
 
 
