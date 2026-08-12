@@ -119,10 +119,16 @@ class abaqua extends eqLogic {
         log::add('abaqua', 'info', $this->getHumanName() . ' : Date limite récupérée en BDD : ' . ($date_limite ? $date_limite : 'Aucune'));
         
         $pluginPath = self::getPluginBasePath();
-        $log_path = log::getPathToLog('abaqua');
         $pythonPath = self::getPythonPath();
         $scriptPath = $pluginPath . '/resources/abaqua.py';
         $homePath = jeedom::getTmpFolder('abaqua');
+
+        $eqName = $this->getHumanName();
+        $eqNameSafe = preg_replace('/[^A-Za-z0-9._-]+/', '_', $eqName);
+        $eqNameSafe = preg_replace('/_{2,}/', '_', $eqNameSafe);
+        $eqNameSafe = trim($eqNameSafe, '_');
+        $logDir = dirname(log::getPathToLog('abaqua'));
+        $log_path = $logDir . '/abaqua_' . $eqNameSafe;
 
         if (!is_dir($homePath)) {
             @mkdir($homePath, 0755, true);
@@ -154,6 +160,7 @@ class abaqua extends eqLogic {
         );
         $processEnv = $_ENV;
         $processEnv['HOME'] = $homePath;
+        $processEnv['ABAQUA_EQ_NAME'] = $eqName;
 
         $process = proc_open($cmd, $descriptorspec, $pipes, null, $processEnv);
         $output = '';
@@ -198,6 +205,7 @@ class abaqua extends eqLogic {
                         while (($pos = strpos($stderr_buffer, "\n")) !== false) {
                             $line = substr($stderr_buffer, 0, $pos);
                             $stderr_buffer = substr($stderr_buffer, $pos + 1);
+                            // Append to the global Jeedom plugin log
                             file_put_contents($log_path, date('Y-m-d H:i:s') . ' [python debug] ' . trim($line) . PHP_EOL, FILE_APPEND);
                         }
                     }
@@ -209,6 +217,7 @@ class abaqua extends eqLogic {
                 }
             }
             if ($stderr_buffer !== '') {
+                // Append remaining stderr buffer to the global Jeedom plugin log
                 file_put_contents($log_path, date('Y-m-d H:i:s') . ' [python debug] ' . trim($stderr_buffer) . PHP_EOL, FILE_APPEND);
             }
 
