@@ -26,6 +26,34 @@ class abaqua extends eqLogic {
         return $pluginPath . '/abaqua_venv/bin/python';
     }
 
+
+    private static function buildEquipmentLogNameFromHumanName($eqName) {
+        $eqNameSafe = preg_replace('/[^A-Za-z0-9._-]+/', '_', (string)$eqName);
+        $eqNameSafe = preg_replace('/_{2,}/', '_', $eqNameSafe);
+        $eqNameSafe = trim($eqNameSafe, '_');
+        if ($eqNameSafe === '') {
+            return 'abaqua';
+        }
+        return 'abaqua_' . $eqNameSafe;
+    }
+
+    private function getEquipmentLogName() {
+        return self::buildEquipmentLogNameFromHumanName($this->getHumanName());
+    }
+
+    public static function getEquipmentLogNameByEqLogicId($eqLogicId) {
+        $eqLogicId = intval($eqLogicId);
+        if ($eqLogicId <= 0) {
+            throw new Exception('ID équipement invalide');
+        }
+
+        $eqLogic = eqLogic::byId($eqLogicId);
+        if (!is_object($eqLogic) || $eqLogic->getEqType_name() !== 'abaqua') {
+            throw new Exception('Équipement Abaqua introuvable');
+        }
+
+        return self::buildEquipmentLogNameFromHumanName($eqLogic->getHumanName());
+    }
     public static function dependancy_info() {
         $return = array();
         $return['log'] = '/var/www/html/log/abaqua_dep';
@@ -136,12 +164,8 @@ class abaqua extends eqLogic {
         $scriptPath = $pluginPath . '/resources/abaqua.py';
         $homePath = jeedom::getTmpFolder('abaqua');
 
-        $eqName = $this->getHumanName();
-        $eqNameSafe = preg_replace('/[^A-Za-z0-9._-]+/', '_', $eqName);
-        $eqNameSafe = preg_replace('/_{2,}/', '_', $eqNameSafe);
-        $eqNameSafe = trim($eqNameSafe, '_');
         $logDir = dirname(log::getPathToLog('abaqua'));
-        $log_path = $logDir . '/abaqua_' . $eqNameSafe;
+        $log_path = $logDir . '/' . $this->getEquipmentLogName();
 
         if (!is_dir($homePath)) {
             @mkdir($homePath, 0755, true);
@@ -173,7 +197,7 @@ class abaqua extends eqLogic {
         );
         $processEnv = $_ENV;
         $processEnv['HOME'] = $homePath;
-        $processEnv['ABAQUA_EQ_NAME'] = $eqName;
+        $processEnv['ABAQUA_EQ_NAME'] = $this->getHumanName();
         $processEnv['ABAQUA_EMAIL'] = $username;
         $processEnv['ABAQUA_PASSWORD'] = $password;
 
