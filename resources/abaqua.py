@@ -109,6 +109,7 @@ def extract_results(lines, dt_limite, mois_dict, resultats, existing_datetimes):
     date_pattern = re.compile(r"(?<!\d)(?P<day>\d{1,2})(?:\s*er)?\s+(?P<month>janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s+(?P<year>20\d{2})", re.IGNORECASE)
     value_pattern = re.compile(r"(?P<val>\d{1,3}(?:[ \u00A0]\d{3})*(?:[.,]\d+)?)\s*[Ll]\b")
     stop_execution = False
+    today = datetime.now().date()
 
     for i, ligne in enumerate(lines):
         match_date = date_pattern.search(ligne)
@@ -117,13 +118,21 @@ def extract_results(lines, dt_limite, mois_dict, resultats, existing_datetimes):
 
         date_str = match_date.group(0)
         dt_ligne = convertir_date_fr(date_str)
-        if dt_ligne and dt_limite and dt_ligne <= dt_limite:
+        if dt_ligne is None:
+            continue
+
+        if dt_ligne.date() > today:
+            continue
+
+        if dt_limite and dt_ligne <= dt_limite:
             stop_execution = True
             break
 
         valeur = None
-        for j in range(i, min(i + 12, len(lines))):
+        for j in range(i + 1, min(i + 3, len(lines))):
             candidate = lines[j]
+            if date_pattern.search(candidate):
+                continue
             if "indisponible" in candidate.lower():
                 continue
             val_match = value_pattern.search(candidate)

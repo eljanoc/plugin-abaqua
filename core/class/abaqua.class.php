@@ -318,14 +318,28 @@ class abaqua extends eqLogic {
                 log::add('abaqua', 'error', $this->getHumanName() . ' : JSON invalide reçu (' . json_last_error_msg() . ').');
                 log::add('abaqua', 'debug', $this->getHumanName() . ' : Sortie brute du script : ' . substr($output, 0, 2000));
             } elseif (is_array($data) && count($data) > 0) {
-                $data = array_reverse($data); 
+                $data = array_reverse($data);
 
                 if (is_object($cmd_conso)) {
+                    $existing = array();
+                    $sql = 'SELECT datetime FROM history WHERE cmd_id = :cmd_id UNION SELECT datetime FROM historyArch WHERE cmd_id = :cmd_id';
+                    $rows = DB::Prepare($sql, array('cmd_id' => $cmd_conso->getId()), DB::FETCH_TYPE_ALL);
+                    foreach ($rows as $row) {
+                        if (isset($row['datetime'])) {
+                            $existing[$row['datetime']] = true;
+                        }
+                    }
+
                     $count = 0;
                     foreach ($data as $r) {
                         if (isset($r['conso']) && isset($r['datetime'])) {
+                            $datetime = substr($r['datetime'], 0, 19);
+                            if (isset($existing[$datetime])) {
+                                continue;
+                            }
                             // Jeedom historise la valeur et force l'alignement des deux dates
-                            $cmd_conso->event($r['conso'], $r['datetime']);
+                            $cmd_conso->event($r['conso'], $datetime);
+                            $existing[$datetime] = true;
                             $count++;
                         }
                     }
