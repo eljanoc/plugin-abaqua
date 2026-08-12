@@ -14,4 +14,15 @@
     "documentation": "https://github.com/eljanoc/plugin-abaqua/blob/stable/docs/fr_FR/index.md",
     "issue": "https://github.com/eljanoc/plugin-abaqua/issues",
     "link": "https://github.com/eljanoc/plugin-abaqua"
+    "log": [
+        "abaqua",
+        "abaqua_dep",
+        "abaqua_Nom de l'équipement_log"
+    ],
+    "os": {
+        "debian": [
+            "10",
+            "11",
+            "12"
+        ]
 }
