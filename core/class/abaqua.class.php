@@ -160,8 +160,8 @@ class abaqua extends eqLogic {
         $cmd = array(
             $pythonPath,
             $scriptPath,
-            $username,
-            $password,
+            "",
+            "",
             $date_limite,
             $fournisseur,
         );
@@ -174,6 +174,8 @@ class abaqua extends eqLogic {
         $processEnv = $_ENV;
         $processEnv['HOME'] = $homePath;
         $processEnv['ABAQUA_EQ_NAME'] = $eqName;
+        $processEnv['ABAQUA_EMAIL'] = $username;
+        $processEnv['ABAQUA_PASSWORD'] = $password;
 
         $process = proc_open($cmd, $descriptorspec, $pipes, null, $processEnv);
         $output = '';

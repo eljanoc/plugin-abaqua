@@ -19,13 +19,16 @@ def log_debug(message):
 VERSION = "1.64.7_DYNAMIQUE"
 # ================================
 
-if len(sys.argv) < 3:
+legacy_email = sys.argv[1] if len(sys.argv) > 1 else ""
+legacy_password = sys.argv[2] if len(sys.argv) > 2 else ""
+
+ABAQUA_EMAIL = os.environ.get("ABAQUA_EMAIL", legacy_email).strip()
+ABAQUA_PASSWORD = os.environ.get("ABAQUA_PASSWORD", legacy_password)
+
+if not ABAQUA_EMAIL or not ABAQUA_PASSWORD:
     log_debug("Erreur : Identifiants manquants.")
     print(json.dumps([]))
     sys.exit(1)
-
-ABAQUA_EMAIL = sys.argv[1]
-ABAQUA_PASSWORD = sys.argv[2]
 
 # On récupère le fournisseur en argument 4 (s'il existe), sinon on met Kyrnolia par défaut
 if len(sys.argv) > 4 and sys.argv[4].strip():
