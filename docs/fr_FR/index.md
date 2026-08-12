@@ -39,6 +39,7 @@ Dès la sauvegarde de votre équipement, le plugin génère automatiquement les 
 
 * **Consommation jour (Info / Numérique) :** Cette commande stocke la consommation en Litres (L). Elle est historisée par défaut. La date de valeur correspond au jour exact de la consommation (telle qu'affichée par le fournisseur), garantissant un graphique fidèle à la réalité.
 * **Rafraîchir (Action / Autre) :** Permet de forcer une synchronisation immédiate avec le fournisseur. Le plugin interroge le site et télécharge toutes les nouvelles données disponibles depuis la dernière date enregistrée dans l'historique de Jeedom. On peut suivre la récupération des valeurs de consommation dans le log abaqua,
+* **Log (Action / Autre) :** Ouvre le widget de consultation du log détaillé de l'équipement (`abaqua_<nom_equipement>`). Cette commande est créée automatiquement et utilise le template custom `cmd.action.other.Abaqua_log.html` installé dans `data/customTemplates/dashboard`.
 
 ## Fonctionnement technique et astuces
 * **Intelligence de synchronisation :** Le plugin interroge l'historique de Jeedom. Il ne télécharge et n'ajoute que les nouvelles valeurs strictement postérieures à la dernière date enregistrée. A la première synchronisation, quand il n'y a pas encore d'historique, l'équipement va télécharger toutes les valeurs quotidiennes de consommation disponibles sur le site. Vu le nombre de valeurs à rapatrier, plusieurs mois, cette opération peut prendre du temps, on peut la suivre dans le log abaqua.
