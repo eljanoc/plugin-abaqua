@@ -81,8 +81,8 @@ cleanup() {
     if [ -n "$PROGRESS_FILE" ]; then
         rm -f "$PROGRESS_FILE"
     fi
-    chown www-data:www-data "$LOG_FILE" || true
-    chmod 664 "$LOG_FILE" || true
+    $SUDO chown www-data:www-data "$LOG_FILE" || true
+    $SUDO chmod 664 "$LOG_FILE" || true
 }
 trap cleanup EXIT
 # --------------------------------
@@ -163,7 +163,7 @@ write_progress 30
 
 echo "-> Nettoyage de l'ancien environnement virtuel..."
 VENV_DIR="/var/www/abaqua_venv"
-rm -rf "$VENV_DIR"
+$SUDO rm -rf "$VENV_DIR"
 write_progress 40
 
 echo "-> Création de l'environnement Python propre..."
@@ -189,8 +189,8 @@ $SUDO "$VENV_DIR/bin/playwright" install chromium
 write_progress 90
 
 echo "-> Attribution des droits finaux..."
-chown -R www-data:www-data "$VENV_DIR" || true
-chown -R www-data:www-data "/var/www/.cache" || true
+$SUDO chown -R www-data:www-data "$VENV_DIR" || true
+$SUDO chown -R www-data:www-data "/var/www/.cache" || true
 write_progress 100
 
 echo "-> Installation du widget dashboard Abaqua..."
