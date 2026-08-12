@@ -71,14 +71,25 @@ function abaqua_remove_widget() {
 }
 
 function abaqua_remove_runtime_dependencies() {
-    abaqua_remove_path('/var/www/abaqua_venv');
-    abaqua_remove_path('/var/www/.cache/ms-playwright');
+    $targets = array('/var/www/abaqua_venv', '/var/www/.cache/ms-playwright');
+    foreach ($targets as $target) {
+        if (!file_exists($target)) {
+            continue;
+        }
+
+        $cmd = system::getCmdSudo() . 'rm -rf ' . escapeshellarg($target) . ' 2>&1';
+        com_shell::execute($cmd);
+
+        if (file_exists($target)) {
+            throw new Exception('Impossible de supprimer le dossier: ' . $target);
+        }
+    }
 
     $cacheRoot = '/var/www/.cache';
     if (is_dir($cacheRoot)) {
         $entries = array_diff(scandir($cacheRoot), array('.', '..'));
         if (empty($entries)) {
-            @rmdir($cacheRoot);
+            com_shell::execute(system::getCmdSudo() . 'rmdir ' . escapeshellarg($cacheRoot) . ' 2>&1');
         }
     }
 
