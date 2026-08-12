@@ -13,7 +13,7 @@
     "changelog": "https://github.com/eljanoc/plugin-abaqua/blob/stable/docs/fr_FR/changelog.md",
     "documentation": "https://github.com/eljanoc/plugin-abaqua/blob/stable/docs/fr_FR/index.md",
     "issue": "https://github.com/eljanoc/plugin-abaqua/issues",
-    "link": "https://github.com/eljanoc/plugin-abaqua"
+    "link": "https://github.com/eljanoc/plugin-abaqua",
     "log": [
         "abaqua",
         "abaqua_dep",
@@ -25,4 +25,5 @@
             "11",
             "12"
         ]
+    }
 }
