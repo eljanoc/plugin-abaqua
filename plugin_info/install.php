@@ -30,9 +30,17 @@ function abaqua_remove() {
     try {
         log::add('abaqua', 'info', 'Suppression du widget Abaqua');
         abaqua_remove_widget();
-        log::add('abaqua', 'info', 'Widget Abaqua supprimé de data/customTemplates/dashboard');
+        log::add('abaqua', 'info', 'Widget Abaqua supprimé de data/customTemplates (dashboard/mobile)');
     } catch (Exception $e) {
         log::add('abaqua', 'error', 'Erreur lors de la suppression du widget Abaqua : ' . $e->getMessage());
+    }
+
+    try {
+        log::add('abaqua', 'info', 'Suppression des dépendances locales Abaqua');
+        abaqua_remove_runtime_dependencies();
+        log::add('abaqua', 'info', 'Dépendances locales Abaqua supprimées (/var/www/abaqua_venv, /var/www/.cache/ms-playwright)');
+    } catch (Exception $e) {
+        log::add('abaqua', 'error', 'Erreur lors de la suppression des dépendances locales Abaqua : ' . $e->getMessage());
     }
 }
 ?>

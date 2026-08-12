@@ -1,6 +1,36 @@
 <?php
 // Script d'installation/suppression du widget dashboard Abaqua
 
+function abaqua_remove_path($path) {
+    if (!file_exists($path)) {
+        return true;
+    }
+
+    if (is_file($path) || is_link($path)) {
+        if (!@unlink($path)) {
+            throw new Exception('Impossible de supprimer le fichier: ' . $path);
+        }
+        return true;
+    }
+
+    $items = scandir($path);
+    if ($items === false) {
+        throw new Exception('Impossible de lire le dossier: ' . $path);
+    }
+
+    foreach ($items as $item) {
+        if ($item === '.' || $item === '..') {
+            continue;
+        }
+        abaqua_remove_path($path . '/' . $item);
+    }
+
+    if (!@rmdir($path)) {
+        throw new Exception('Impossible de supprimer le dossier: ' . $path);
+    }
+    return true;
+}
+
 function abaqua_install_widget() {
     $src = dirname(__FILE__) . '/cmd.action.other.Abaqua_log.html';
     $webroot = realpath(dirname(__FILE__) . '/../../..');
@@ -27,12 +57,31 @@ function abaqua_remove_widget() {
     $webroot = realpath(dirname(__FILE__) . '/../../..');
     if ($webroot === false) throw new Exception('Impossible de résoudre le chemin webroot');
 
-    $file = $webroot . '/data/customTemplates/dashboard/cmd.action.other.Abaqua_log.html';
-    if (file_exists($file)) {
-        if (!@unlink($file)) {
-            throw new Exception('Impossible de supprimer le fichier: ' . $file);
+    $dashboardFile = $webroot . '/data/customTemplates/dashboard/cmd.action.other.Abaqua_log.html';
+    $mobileFile = $webroot . '/data/customTemplates/mobile/cmd.action.other.Abaqua_log.html';
+
+    if (file_exists($dashboardFile) && !@unlink($dashboardFile)) {
+        throw new Exception('Impossible de supprimer le fichier: ' . $dashboardFile);
+    }
+    if (file_exists($mobileFile) && !@unlink($mobileFile)) {
+        throw new Exception('Impossible de supprimer le fichier: ' . $mobileFile);
+    }
+
+    return true;
+}
+
+function abaqua_remove_runtime_dependencies() {
+    abaqua_remove_path('/var/www/abaqua_venv');
+    abaqua_remove_path('/var/www/.cache/ms-playwright');
+
+    $cacheRoot = '/var/www/.cache';
+    if (is_dir($cacheRoot)) {
+        $entries = array_diff(scandir($cacheRoot), array('.', '..'));
+        if (empty($entries)) {
+            @rmdir($cacheRoot);
         }
     }
+
     return true;
 }
 
