@@ -83,6 +83,8 @@ cleanup() {
     fi
     $SUDO chown www-data:www-data "$LOG_FILE" || true
     $SUDO chmod 664 "$LOG_FILE" || true
+    $SUDO chown www-data:www-data "$LOG_DIR/abaqua" || true
+    $SUDO chmod 664 "$LOG_DIR/abaqua" || true
 }
 trap cleanup EXIT
 # --------------------------------
@@ -167,16 +169,16 @@ $SUDO rm -rf "$VENV_DIR"
 write_progress 40
 
 echo "-> Création de l'environnement Python propre..."
-python3 -m venv --clear "$VENV_DIR"
+run_cmd python3 -m venv --clear "$VENV_DIR"
 write_progress 50
 
 echo "-> Installation des bibliothèques Python..."
-"$VENV_DIR/bin/pip" install --upgrade pip
-"$VENV_DIR/bin/pip" install --progress-bar off --no-cache-dir playwright
+run_cmd "$VENV_DIR/bin/pip" install --upgrade pip
+run_cmd "$VENV_DIR/bin/pip" install --progress-bar off --no-cache-dir playwright
 write_progress 60
 
 echo "-> Installation des librairies système requises par Chromium..."
-$SUDO "$VENV_DIR/bin/playwright" install-deps chromium
+run_cmd "$VENV_DIR/bin/playwright" install-deps chromium
 write_progress 70
 
 echo "-> Préparation du répertoire de destination..."
@@ -185,7 +187,7 @@ write_progress 80
 
 echo "-> Téléchargement du navigateur Chromium..."
 export PLAYWRIGHT_BROWSERS_PATH="$PLAYWRIGHT_BROWSERS_PATH"
-$SUDO "$VENV_DIR/bin/playwright" install chromium
+run_cmd PLAYWRIGHT_BROWSERS_PATH="$PLAYWRIGHT_BROWSERS_PATH" "$VENV_DIR/bin/playwright" install chromium
 write_progress 90
 
 echo "-> Attribution des droits finaux..."

@@ -1,217 +1,80 @@
 <div class="cmd cmd-widget" data-type="action" data-subtype="other" data-cmd_id="#id#">
-    
-    <a class="btn btn-sm btn-default" style="cursor:pointer;" onclick="window.ouvrirLogAbaqua_#id#()">
+    <a class="btn btn-sm btn-default" style="cursor:pointer;" id="abaqua-log-btn-#id#">
         Log
     </a>
 
     <script>
-        window.ouvrirLogAbaqua_#id# = function() {
-            var version = 27; 
-            
-            // --- 1. DÉTECTION DU NOM DIRECTEMENT SUR LE DASHBOARD --- //
+        (function() {
             var cmdDiv = document.querySelector('.cmd[data-cmd_id="#id#"]');
-            var equipementNom = "";
-            
-            if (cmdDiv) {
-                var tuile = cmdDiv.closest('.eqLogic');
-                if (tuile) {
-                    var titreElement = tuile.querySelector('.widget-name a') || tuile.querySelector('.widget-name');
-                    if (titreElement) {
-                        equipementNom = titreElement.getAttribute('title') || titreElement.textContent.trim();
-                    }
+            if (!cmdDiv) {
+                return;
+            }
+
+            var button = cmdDiv.querySelector('#abaqua-log-btn-#id#');
+            if (!button || button.getAttribute('data-abaqua-bound') === '1') {
+                return;
+            }
+            button.setAttribute('data-abaqua-bound', '1');
+
+            function getEqLogicId() {
+                var tuile = cmdDiv.closest('.eqLogic-widget, .eqLogic, [data-eqLogic_id], [data-eqlogic_id]');
+                if (!tuile) {
+                    return '';
+                }
+                return tuile.getAttribute('data-eqLogic_id') || tuile.getAttribute('data-eqlogic_id') || '';
+            }
+
+            // --- 2. OUVERTURE DE LA FENÊTRE STANDARD JEEDOM ---
+            function ouvrirModalNative(logName) {
+                var normalizedLogName = String(logName || '').trim();
+                if (normalizedLogName === '') {
+                    return;
+                }
+                $('#md_modal').dialog({
+                    title: 'Log de l\'équipement ' + normalizedLogName
+                }).load('index.php?v=d&modal=log.display&log=' + encodeURIComponent(normalizedLogName)).dialog('open');
+            }
+
+            function demanderNomLogManuel() {
+                var nomDuLog = prompt("Impossible de récupérer automatiquement le log. Saisis le nom du fichier (ex: abaqua_maison_kyrnolia) :");
+                if (nomDuLog) {
+                    ouvrirModalNative(nomDuLog.trim());
                 }
             }
 
-            if (!equipementNom) {
-                equipementNom = prompt("Impossible de détecter le nom de l'équipement. Saisis-le manuellement (ex: maison#Kyrnolia1) :");
-                if (!equipementNom) return; 
-            }
-            
-            // --- 2. FORMATAGE ET INVERSION DU NOM (NOUVEAU FORMAT) --- //
-            var mots = equipementNom.trim().split(/\s+/);
-            var nomFormate = equipementNom;
-            
-            if (mots.length === 2) {
-                // Inversion avec un simple tiret du bas
-                nomFormate = mots[1] + '_' + mots[0];
-            } else {
-                // Remplacement des espaces ou dièses par un simple tiret du bas
-                nomFormate = equipementNom.replace(/[ #]/g, '_');
-            }
-            
-            // Construction finale : abaqua_maison_Kyrnolia1
-            var nomDuLog = 'abaqua_' + nomFormate; 
-
-            // --- APPEL INITIAL --- //
-            $.ajax({
-                url: 'core/ajax/log.ajax.php', 
-                type: 'POST',
-                dataType: 'json',
-                data: { 
-                    action: 'get', 
-                    logfile: nomDuLog,
-                    log: nomDuLog
-                },
-                success: function(data) {
-                    var brut = data.result !== undefined ? data.result : data;
-                    var contenu = "";
-                    
-                    if (Array.isArray(brut)) {
-                        contenu = brut.join('\n');
-                    } else if (typeof brut === 'object') {
-                        contenu = JSON.stringify(brut, null, 2);
-                    } else {
-                        contenu = String(brut);
-                    }
-                    
-                    contenu = contenu.replace(/\\n/g, '\n').replace(/\\r/g, '');
-
-                    if (!contenu || contenu.trim() === '') {
-                        contenu = 'Le log ' + nomDuLog + ' est vide.';
-                    }
-                    
-                    // --- FENÊTRE --- //
-                    var fond = document.createElement('div');
-                    fond.style.position = 'fixed';
-                    fond.style.top = '0';
-                    fond.style.left = '0';
-                    fond.style.width = '100vw';
-                    fond.style.height = '100vh';
-                    fond.style.backgroundColor = 'rgba(0,0,0,0.4)'; 
-                    fond.style.zIndex = '999999';
-                    fond.style.display = 'flex';
-                    fond.style.alignItems = 'center';
-                    fond.style.justifyContent = 'center';
-                    
-                    var boite = document.createElement('div');
-                    boite.style.backgroundColor = '#ffffff';
-                    boite.style.width = '85%';
-                    boite.style.height = '85%';
-                    boite.style.padding = '20px';
-                    boite.style.borderRadius = '8px';
-                    boite.style.display = 'flex';
-                    boite.style.flexDirection = 'column';
-                    boite.style.boxShadow = '0 0 20px rgba(0,0,0,0.5)'; 
-                    
-                    var header = document.createElement('div');
-                    header.style.display = 'flex';
-                    header.style.justifyContent = 'space-between';
-                    header.style.alignItems = 'center';
-                    header.style.borderBottom = '1px solid #ccc';
-                    header.style.paddingBottom = '10px';
-                    header.style.marginBottom = '10px';
-                    
-                    var titre = document.createElement('h3');
-                    titre.innerText = 'Log : ' + nomDuLog + ' (Widget V' + version + ')';
-                    titre.style.color = '#333333';
-                    titre.style.margin = '0'; 
-                    
-                    var btnGroup = document.createElement('div');
-                    
-                    var btnVider = document.createElement('button');
-                    btnVider.innerHTML = '<i class="fas fa-trash"></i> Vider';
-                    btnVider.className = 'btn btn-danger btn-sm'; 
-                    btnVider.style.cursor = 'pointer';
-                    btnVider.style.marginRight = '10px'; 
-                    
-                    var btnFermer = document.createElement('button');
-                    btnFermer.innerText = 'Fermer';
-                    btnFermer.className = 'btn btn-default btn-sm';
-                    btnFermer.style.cursor = 'pointer';
-                    
-                    btnGroup.appendChild(btnVider);
-                    btnGroup.appendChild(btnFermer);
-                    header.appendChild(titre);
-                    header.appendChild(btnGroup);
-                    
-                    var texte = document.createElement('pre');
-                    texte.innerText = contenu;
-                    texte.style.flex = '1';
-                    texte.style.overflow = 'auto';
-                    texte.style.backgroundColor = '#f9f9f9';
-                    texte.style.color = '#000000';
-                    texte.style.border = '1px solid #ddd';
-                    texte.style.padding = '10px';
-                    texte.style.borderRadius = '4px';
-                    texte.style.whiteSpace = 'pre-wrap';
-                    texte.style.wordBreak = 'break-all';
-                    
-                    // --- TEMPS RÉEL --- //
-                    var intervalId = setInterval(function() {
-                        if (!document.body.contains(fond)) {
-                            clearInterval(intervalId);
-                            return;
-                        }
-
-                        $.ajax({
-                            url: 'core/ajax/log.ajax.php',
-                            type: 'POST',
-                            dataType: 'json',
-                            data: { action: 'get', logfile: nomDuLog, log: nomDuLog },
-                            success: function(updateData) {
-                                if (updateData.state === 'error') return;
-
-                                var newBrut = updateData.result !== undefined ? updateData.result : updateData;
-                                var newContenu = "";
-                                
-                                if (Array.isArray(newBrut)) {
-                                    newContenu = newBrut.join('\n');
-                                } else if (typeof newBrut === 'object') {
-                                    newContenu = JSON.stringify(newBrut, null, 2);
-                                } else {
-                                    newContenu = String(newBrut);
-                                }
-                                
-                                newContenu = newContenu.replace(/\\n/g, '\n').replace(/\\r/g, '');
-                                
-                                if (!newContenu || newContenu.trim() === '') {
-                                    newContenu = 'Le log ' + nomDuLog + ' est vide.';
-                                }
-                                
-                                if (texte.innerText !== newContenu) {
-                                    var positionActuelle = texte.scrollTop;
-                                    texte.innerText = newContenu;
-                                    texte.scrollTop = positionActuelle;
-                                }
-                            }
-                        });
-                    }, 3000);
-
-                    // --- ACTIONS DES BOUTONS --- //
-                    btnVider.onclick = function() {
-                        if (confirm("Es-tu sûr de vouloir vider ce log ?")) {
-                            $.ajax({
-                                url: 'core/ajax/log.ajax.php',
-                                type: 'POST',
-                                dataType: 'json',
-                                data: { action: 'remove', log: nomDuLog }, 
-                                success: function(response) {
-                                    if (response && response.state === 'error') {
-                                        alert("Erreur : " + (response.result || JSON.stringify(response)));
-                                    } else {
-                                        texte.innerText = 'Le log ' + nomDuLog + ' est vide.';
-                                    }
-                                }
-                            });
-                        }
-                    };
-
-                    btnFermer.onclick = function() {
-                        clearInterval(intervalId);
-                        document.body.removeChild(fond);
-                    };
-                    
-                    boite.appendChild(header);
-                    boite.appendChild(texte);
-                    fond.appendChild(boite);
-                    document.body.appendChild(fond);
-
-                    texte.scrollTop = 0;
-                },
-                error: function(xhr, status, error) {
-                    alert("Erreur AJAX : " + error);
+            function ouvrirLog() {
+                var eqLogicId = getEqLogicId();
+                if (!eqLogicId) {
+                    demanderNomLogManuel();
+                    return;
                 }
-            });
-        };
+
+                // --- 3. APPEL AU BACKEND POUR AVOIR LE NOM EXACT ---
+                $.ajax({
+                    url: 'plugins/abaqua/core/ajax/abaqua.ajax.php',
+                    type: 'POST',
+                    dataType: 'json',
+                    data: {
+                        action: 'getEquipmentLogName',
+                        eqLogic_id: eqLogicId
+                    },
+                    success: function(response) {
+                        if (response && response.state === 'ok' && response.result) {
+                            ouvrirModalNative(String(response.result));
+                        } else if (typeof response === 'string' && response.trim() !== '') {
+                            ouvrirModalNative(response.trim());
+                        } else {
+                            demanderNomLogManuel();
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        alert('Erreur AJAX : ' + (error || status));
+                        demanderNomLogManuel();
+                    }
+                });
+            }
+
+            button.addEventListener('click', ouvrirLog);
+        })();
     </script>
 </div>

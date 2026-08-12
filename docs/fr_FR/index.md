@@ -43,4 +43,4 @@ Dès la sauvegarde de votre équipement, le plugin génère automatiquement les 
 
 ## Fonctionnement technique et astuces
 * **Intelligence de synchronisation :** Le plugin interroge l'historique de Jeedom. Il ne télécharge et n'ajoute que les nouvelles valeurs strictement postérieures à la dernière date enregistrée. A la première synchronisation, quand il n'y a pas encore d'historique, l'équipement va télécharger toutes les valeurs quotidiennes de consommation disponibles sur le site. Vu le nombre de valeurs à rapatrier, plusieurs mois, cette opération peut prendre du temps, on peut la suivre dans le log abaqua.
-* **Date de collecte vs Date de valeur :** Lors du survol de la valeur sur votre dashboard, vous verrez la date réelle de la consommation (Date de valeur) séparée de la date à laquelle le plugin a effectué sa dernière vérification fructueuse (Date de collecte).
+* **Date de collecte vs Date de valeur :** Lors du survol de la valeur sur votre dashboard, après un refresh, vous verrez la date réelle de la consommation (Date de valeur) séparée de la date à laquelle le plugin a effectué sa dernière vérification fructueuse (Date de collecte).
