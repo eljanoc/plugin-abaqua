@@ -11,6 +11,14 @@ Le plugin se connecte à votre espace client, lit les consommations journalière
 
 Il est conçu pour fonctionner avec des fournisseurs compatibles, par défaut Kyrnolia, et pour rester robuste face aux changements de page ou de structure du site.
 
+## Important
+
+Ce plugin nécessite de disposer d'un compteur d'eau communicant compatible avec la plateforme du fournisseur.
+
+Il a été testé avec le site Kyrnolia (Veolia Corse). Il est donc prévu pour fonctionner avec ce type d'interface et devrait également fonctionner sur le site Veolia ainsi que sur certaines de ses succursales, selon la structure de la plateforme et les éventuels changements de code.
+
+Pour les autres fournisseurs d'eau, le plugin devra probablement être adapté aux spécificités de leur site et de leur mécanisme d'accès aux données.
+
 ## Fonctionnalités
 
 - récupération automatique de la consommation journalière
@@ -23,6 +31,8 @@ Il est conçu pour fonctionner avec des fournisseurs compatibles, par défaut Ky
 ## Prérequis
 
 Le plugin utilise Python et Playwright pour naviguer sur le site et extraire les données.
+
+Il nécessite également de disposer d'un compteur d'eau communicant associé à un fournisseur compatible.
 
 Lors de l'installation, il va automatiquement :
 
@@ -82,6 +92,12 @@ Cela permet d'analyser précisément le comportement du site sans refaire toute 
 
 Le plugin ne stocke pas les mots de passe en clair dans les fichiers de debug.
 Mais il est recommandé de garder le mode debug uniquement pendant la résolution d'un problème et de limiter le nombre de fichiers conservés.
+
+## Compatibilité
+
+- Testé : Kyrnolia / Veolia Corse
+- Potentiellement compatible : Veolia et ses succursales selon configuration et évolution du site
+- Autres fournisseurs : adaptation probable nécessaire selon la structure du site et des identifiants fournis par le fournisseur
 
 ## Changelog
 
