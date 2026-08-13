@@ -143,7 +143,7 @@ class abaqua extends eqLogic {
     // --- 3. EXECUTION DU SCRIPT PYTHON ---
 
     public function refreshData() {
-        log::add('abaqua', 'info', $this->getHumanName() . ' : Début de la synchronisation Abaqua.');
+        log::add('abaqua', 'info', '[php] ' . $this->getHumanName() . ' : Début de la synchronisation Abaqua.');
 
         $username = $this->getConfiguration('username');
         $password = $this->getConfiguration('password');
@@ -151,7 +151,7 @@ class abaqua extends eqLogic {
         $fournisseur = $this->getConfiguration('fournisseur', 'www.kyrnolia.fr');
         
         if (empty($username) || empty($password)) {
-            log::add('abaqua', 'error', $this->getHumanName() . ' : Identifiants manquants.');
+            log::add('abaqua', 'error', '[php] ' . $this->getHumanName() . ' : Identifiants manquants.');
             return;
         }
 
@@ -174,7 +174,7 @@ class abaqua extends eqLogic {
             }
         }
         
-        log::add('abaqua', 'info', $this->getHumanName() . ' : Date limite récupérée en BDD : ' . ($date_limite ? $date_limite : 'Aucune'));
+        log::add('abaqua', 'info', '[php] ' . $this->getHumanName() . ' : Date limite récupérée en BDD : ' . ($date_limite ? $date_limite : 'Aucune'));
         
         $pluginPath = self::getPluginBasePath();
         $pythonPath = self::getPythonPath();
@@ -189,12 +189,12 @@ class abaqua extends eqLogic {
         }
 
         if (!file_exists($pythonPath)) {
-            log::add('abaqua', 'error', $this->getHumanName() . ' : Environnement Python introuvable : ' . $pythonPath);
+            log::add('abaqua', 'error', '[php] ' . $this->getHumanName() . ' : Environnement Python introuvable : ' . $pythonPath);
             return;
         }
 
         if (!file_exists($scriptPath)) {
-            log::add('abaqua', 'error', $this->getHumanName() . ' : Script Python introuvable : ' . $scriptPath);
+            log::add('abaqua', 'error', '[php] ' . $this->getHumanName() . ' : Script Python introuvable : ' . $scriptPath);
             return;
         }
 
@@ -262,7 +262,7 @@ class abaqua extends eqLogic {
                             $line = substr($stderr_buffer, 0, $pos);
                             $stderr_buffer = substr($stderr_buffer, $pos + 1);
                             // Append to the global Jeedom plugin log
-                            file_put_contents($log_path, date('Y-m-d H:i:s') . ' ' . trim($line) . PHP_EOL, FILE_APPEND);
+                            file_put_contents($log_path, date('Y-m-d H:i:s') . ' [py] ' . trim($line) . PHP_EOL, FILE_APPEND);
                         }
                     }
                 }
@@ -274,7 +274,7 @@ class abaqua extends eqLogic {
             }
             if ($stderr_buffer !== '') {
                 // Append remaining stderr buffer to the global Jeedom plugin log
-                file_put_contents($log_path, date('Y-m-d H:i:s') . ' ' . trim($stderr_buffer) . PHP_EOL, FILE_APPEND);
+                file_put_contents($log_path, date('Y-m-d H:i:s') . ' [py] ' . trim($stderr_buffer) . PHP_EOL, FILE_APPEND);
             }
 
             $output .= stream_get_contents($pipes[1]);
@@ -295,19 +295,19 @@ class abaqua extends eqLogic {
                 }
             }
         } else {
-            log::add('abaqua', 'error', $this->getHumanName() . ' : Impossible de démarrer le processus Python.');
+            log::add('abaqua', 'error', '[php] ' . $this->getHumanName() . ' : Impossible de démarrer le processus Python.');
         }
 
         if ($return_var === 0) {
             $success = true;
         } else {
-            log::add('abaqua', 'error', $this->getHumanName() . ' : Le script Python a échoué avec le code de sortie ' . $return_var . '.');
+            log::add('abaqua', 'error', '[php] ' . $this->getHumanName() . ' : Le script Python a échoué avec le code de sortie ' . $return_var . '.');
             if ($output !== '') {
-                log::add('abaqua', 'error', $this->getHumanName() . ' : Sortie du script : ' . substr($output, 0, 2000));
+                log::add('abaqua', 'error', '[php] ' . $this->getHumanName() . ' : Sortie du script : ' . substr($output, 0, 2000));
             } elseif ($stderr !== '') {
-                log::add('abaqua', 'error', $this->getHumanName() . ' : Erreurs Python présentes dans le log Python en temps réel.');
+                log::add('abaqua', 'error', '[php] ' . $this->getHumanName() . ' : Erreurs Python présentes dans le log Python en temps réel.');
             } else {
-                log::add('abaqua', 'debug', $this->getHumanName() . ' : Le script Python n’a retourné aucune sortie.');
+                log::add('abaqua', 'debug', '[php] ' . $this->getHumanName() . ' : Le script Python n’a retourné aucune sortie.');
             }
         }
 
@@ -315,8 +315,8 @@ class abaqua extends eqLogic {
             $data = json_decode($output, true);
 
             if (json_last_error() !== JSON_ERROR_NONE) {
-                log::add('abaqua', 'error', $this->getHumanName() . ' : JSON invalide reçu (' . json_last_error_msg() . ').');
-                log::add('abaqua', 'debug', $this->getHumanName() . ' : Sortie brute du script : ' . substr($output, 0, 2000));
+                log::add('abaqua', 'error', '[php] ' . $this->getHumanName() . ' : JSON invalide reçu (' . json_last_error_msg() . ').');
+                log::add('abaqua', 'debug', '[php] ' . $this->getHumanName() . ' : Sortie brute du script : ' . substr($output, 0, 2000));
             } elseif (is_array($data) && count($data) > 0) {
                 $data = array_reverse($data);
 
@@ -343,7 +343,7 @@ class abaqua extends eqLogic {
                             $count++;
                         }
                     }
-                    log::add('abaqua', 'info', $this->getHumanName() . ' : ' . $count . ' jours insérés.');
+                    log::add('abaqua', 'info', '[php] ' . $this->getHumanName() . ' : ' . $count . ' jours insérés.');
 
                     // --- SÉPARATION DÉFINITIVE DES DATES ---
                     if ($count > 0) {
@@ -352,17 +352,17 @@ class abaqua extends eqLogic {
                     }
                 }
             } else {
-                log::add('abaqua', 'warning', $this->getHumanName() . ' : Le script a produit une sortie JSON vide ou non exploitable.');
-                log::add('abaqua', 'debug', $this->getHumanName() . ' : Sortie brute du script : ' . substr($output, 0, 2000));
+                log::add('abaqua', 'warning', '[php] ' . $this->getHumanName() . ' : Le script a produit une sortie JSON vide ou non exploitable.');
+                log::add('abaqua', 'debug', '[php] ' . $this->getHumanName() . ' : Sortie brute du script : ' . substr($output, 0, 2000));
             }
         } elseif ($success) {
-            log::add('abaqua', 'debug', $this->getHumanName() . ' : Le script Python s’est exécuté sans erreur, mais n’a renvoyé aucune sortie.');
+            log::add('abaqua', 'debug', '[php] ' . $this->getHumanName() . ' : Le script Python s’est exécuté sans erreur, mais n’a renvoyé aucune sortie.');
         }
 
         if ($success) {
             // On met à jour l'heure de dernière communication de l'équipement
             $this->setStatus('lastCommunication', date('Y-m-d H:i:s'));
-            log::add('abaqua', 'info', $this->getHumanName() . ' : Synchronisation terminée avec succès.');
+            log::add('abaqua', 'info', '[php] ' . $this->getHumanName() . ' : Synchronisation terminée avec succès.');
         }
     }
 }
