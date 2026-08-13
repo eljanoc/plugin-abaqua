@@ -3,6 +3,26 @@ $('#bt_pluginConfiguration').on('click', function () {
     window.location.href = 'index.php?v=d&p=plugin&id=abaqua';
 });
 
+function syncAbaquaFournisseurField() {
+    var select = $('#abaqua-fournisseur-select');
+    var custom = $('#abaqua-fournisseur-custom');
+    if (!select.length || !custom.length) {
+        return;
+    }
+
+    var selected = select.val();
+    if (selected && selected !== 'custom') {
+        custom.val(selected);
+        custom.hide();
+    } else {
+        custom.show();
+    }
+}
+
+$('#abaqua-fournisseur-select').on('change', function () {
+    syncAbaquaFournisseurField();
+});
+
 // Action au clic sur le bouton "Ajouter une commande"
 $('#bt_addabaquaCmd').on('click', function () {
     addCmdToTable();
@@ -16,8 +36,39 @@ function preSaveEqLogic() {
             $(this).remove();
         }
     });
+
+    var select = $('#abaqua-fournisseur-select');
+    var custom = $('#abaqua-fournisseur-custom');
+    if (select.length && custom.length) {
+        if (select.val() && select.val() !== 'custom') {
+            custom.val(select.val());
+        }
+    }
+
     return true;
 }
+
+$(document).ready(function () {
+    var select = $('#abaqua-fournisseur-select');
+    var custom = $('#abaqua-fournisseur-custom');
+    if (!select.length || !custom.length) {
+        return;
+    }
+
+    var current = custom.val();
+    if (current === 'www.kyrnolia.fr' || current === 'www.eau.veolia.fr') {
+        select.val(current);
+        custom.hide();
+    } else if (current) {
+        select.val('custom');
+        custom.show();
+    } else {
+        select.val('');
+        custom.hide();
+    }
+
+    syncAbaquaFournisseurField();
+});
 
 // Fonction pour dessiner une ligne dans le tableau
 function addCmdToTable(_cmd) {

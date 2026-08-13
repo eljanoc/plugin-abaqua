@@ -91,11 +91,15 @@ $eqLogics = eqLogic::byType($plugin->getId());
 
                         <div class="form-group">
                             <label class="col-sm-3 control-label">{{Fournisseur}}</label>
-                            <div class="col-sm-3">
-                                <select class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="fournisseur">
+                            <div class="col-sm-6">
+                                <select class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="fournisseur_select" id="abaqua-fournisseur-select">
+                                    <option value="">{{Choisir un fournisseur}}</option>
                                     <option value="www.kyrnolia.fr">Kyrnolia</option>
                                     <option value="www.eau.veolia.fr">Veolia</option>
+                                    <option value="custom">{{Autre (à saisir manuellement)}}</option>
                                 </select>
+                                <input type="text" class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="fournisseur" id="abaqua-fournisseur-custom" placeholder="{{Saisir l'URL du fournisseur manuellement}}" style="margin-top:8px; display:none;" />
+                                <small class="help-block">{{Choisissez un fournisseur standard ou saisissez l'URL manuellement pour un autre site.}}</small>
                             </div>
                         </div>
 

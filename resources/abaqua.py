@@ -155,6 +155,34 @@ def click_previous_page(page):
     return False
 
 
+def is_login_page(page):
+    try:
+        url = (page.url or '').lower()
+        if '/connexion' in url or '/login' in url or '/callback' in url:
+            return True
+    except Exception:
+        pass
+
+    selectors = [
+        "input[type='email']",
+        "input[name*='mail']",
+        "#username",
+        "input[type='password']",
+        "button:has-text('Se connecter')",
+        "button:has-text('Connexion')",
+        "text='Bienvenue sur votre espace'",
+        "text='Particulier'",
+    ]
+
+    for selector in selectors:
+        try:
+            if page.locator(selector).count() > 0:
+                return True
+        except Exception:
+            continue
+    return False
+
+
 def extract_results(lines, dt_limite, mois_dict, resultats, existing_datetimes):
     date_pattern = re.compile(r"(?<!\d)(?P<day>\d{1,2})(?:\s*er)?\s+(?P<month>janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s+(?P<year>20\d{2})", re.IGNORECASE)
     value_pattern = re.compile(r"(?P<val>\d{1,3}(?:[ \u00A0]\d{3})*(?:[.,]\d+)?)\s*[Ll]\b")
@@ -257,11 +285,29 @@ def run():
             page.keyboard.press("Enter")
             page.wait_for_timeout(5000)
 
+            if is_login_page(page):
+                log_debug("[py] Échec d'authentification : la page de connexion est encore affichée après soumission.")
+                if DEBUG_MODE:
+                    saved = save_debug_file('login_error_page', page.content(), 'html')
+                    if saved:
+                        log_debug(f"[py] Capture HTML d'échec d'authentification sauvegardée dans : {saved}")
+                print(json.dumps([]))
+                sys.exit(1)
+
             log_debug("2. Navigation...")
             page.wait_for_load_state("domcontentloaded")
             page.goto(f"https://{ABAQUA_URL}/consommation")
             page.wait_for_load_state("domcontentloaded")
             time.sleep(3)
+
+            if is_login_page(page):
+                log_debug("[py] Redirection vers la page de connexion détectée après accès à la consommation : le site n'a pas validé la session.")
+                if DEBUG_MODE:
+                    saved = save_debug_file('consumption_login_redirect', page.content(), 'html')
+                    if saved:
+                        log_debug(f"[py] Capture HTML de redirection vers login sauvegardée dans : {saved}")
+                print(json.dumps([]))
+                sys.exit(1)
             
             try: 
                 page.locator("text='Du mois'").first.click(timeout=5000)
@@ -309,27 +355,34 @@ def run():
                     if DEBUG_MODE and current_page is not None:
                         try:
                             html = current_page.content()
-                            save_debug_file('empty_page', html, 'html')
+                            saved = save_debug_file('empty_page', html, 'html')
+                            if saved:
+                                log_debug(f"[py] Page HTML vide/inexploitée sauvegardée dans : {saved}")
                         except Exception as exc:
-                            log_debug(f"Impossible de sauvegarder la page vide : {exc}")
+                            log_debug(f"[py] Impossible de sauvegarder la page vide : {exc}")
             else:
                 log_debug(f"   -> ✅ Bilan : {len(resultats)} nouvelle(s) valeur(s) extraite(s).")
 
             browser.close()
     except Exception as exc:
-        log_debug(f"Erreur critique du scraping : {exc}")
+        log_debug(f"[py] Erreur critique du scraping : {exc}")
         traceback.print_exc(file=sys.stderr)
         if DEBUG_MODE and current_page is not None:
             try:
-                save_debug_file('error_page', current_page.content(), 'html')
+                saved = save_debug_file('error_page', current_page.content(), 'html')
+                if saved:
+                    log_debug(f"[py] Capture HTML d'erreur de scraping sauvegardée dans : {saved}")
             except Exception:
                 pass
-        save_debug_file('error', {
+        debug_payload = {
             'error': str(exc),
             'traceback': traceback.format_exc(),
             'url': f'https://{ABAQUA_URL}/consommation',
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }, 'json')
+        }
+        saved = save_debug_file('error', debug_payload, 'json')
+        if saved:
+            log_debug(f"[py] Payload JSON de debug sauvegardé dans : {saved}")
         print(json.dumps([]))
         sys.exit(1)
 
