@@ -6,40 +6,72 @@
     <script>
         (function() {
             var cmdDiv = document.querySelector('.cmd[data-cmd_id="#id#"]');
-            if (!cmdDiv) {
-                return;
-            }
+            if (!cmdDiv) return;
 
             var button = cmdDiv.querySelector('#abaqua-log-btn-#id#');
-            if (!button || button.getAttribute('data-abaqua-bound') === '1') {
-                return;
-            }
+            if (!button || button.getAttribute('data-abaqua-bound') === '1') return;
             button.setAttribute('data-abaqua-bound', '1');
 
             function getEqLogicId() {
                 var tuile = cmdDiv.closest('.eqLogic-widget, .eqLogic, [data-eqLogic_id], [data-eqlogic_id]');
-                if (!tuile) {
-                    return '';
-                }
-                return tuile.getAttribute('data-eqLogic_id') || tuile.getAttribute('data-eqlogic_id') || '';
+                return tuile ? (tuile.getAttribute('data-eqLogic_id') || tuile.getAttribute('data-eqlogic_id') || '') : '';
             }
 
             // --- 2. OUVERTURE DE LA FENÊTRE STANDARD JEEDOM ---
             function ouvrirModalNative(logName) {
                 var normalizedLogName = String(logName || '').trim();
-                if (normalizedLogName === '') {
-                    return;
-                }
-                $('#md_modal').dialog({
-                    title: 'Log de l\'équipement ' + normalizedLogName
-                }).load('index.php?v=d&modal=log.display&log=' + encodeURIComponent(normalizedLogName)).dialog('open');
+                if (normalizedLogName === '') return;
+
+                var modal = $('#md_modal');
+                modal.dialog({
+                    title: 'Log de l\'équipement ' + normalizedLogName,
+                    width: 800,
+                    height: 600
+                }).dialog('open');
+
+                modal.load('index.php?v=d&modal=log.display&log=' + encodeURIComponent(normalizedLogName), function() {
+                    var display = document.getElementById('pre_eventlog');
+                    var search = document.getElementById('in_eventLogSearch');
+                    var control = document.getElementById('bt_eventLogStopStart');
+                    var modalContent = document.getElementById('md_modal');
+                    
+                    if (window.jeedom && jeedom.log && display && search && control) {
+                        jeedom.log.autoUpdateDelta({
+                            log: normalizedLogName,
+                            display: display,
+                            search: search,
+                            control: control
+                        });
+                    }
+                    
+                    // --- SCROLL AUTO CONTINU ---
+                    if (display) {
+                        // La fonction qui pousse le curseur tout en bas
+                        var forceScroll = function() {
+                            display.scrollTop = display.scrollHeight;
+                            if (modalContent) {
+                                modalContent.scrollTop = modalContent.scrollHeight;
+                            }
+                        };
+
+                        // On force dès l'ouverture
+                        forceScroll();
+
+                        // On observe les changements en permanence
+                        var observer = new MutationObserver(forceScroll);
+                        observer.observe(display, { childList: true, characterData: true, subtree: true });
+                        
+                        // On nettoie proprement l'observateur quand on ferme la fenêtre modale
+                        modal.one('dialogclose', function() {
+                            observer.disconnect();
+                        });
+                    }
+                });
             }
 
             function demanderNomLogManuel() {
-                var nomDuLog = prompt("Impossible de récupérer automatiquement le log. Saisis le nom du fichier (ex: abaqua_maison_kyrnolia) :");
-                if (nomDuLog) {
-                    ouvrirModalNative(nomDuLog.trim());
-                }
+                var nomDuLog = prompt("Impossible de récupérer automatiquement le log. Saisis le nom du fichier (ex: abaqua_maison) :");
+                if (nomDuLog) ouvrirModalNative(nomDuLog.trim());
             }
 
             function ouvrirLog() {
