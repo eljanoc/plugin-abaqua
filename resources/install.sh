@@ -21,6 +21,11 @@ else
 fi
 
 mkdir -p "$LOG_DIR"
+touch "$LOG_FILE"
+if [ -n "$SUDO" ]; then
+    $SUDO chown www-data:www-data "$LOG_FILE" || true
+    $SUDO chmod 664 "$LOG_FILE" || true
+fi
 exec >> "$LOG_FILE" 2>&1
 
 write_progress() {
@@ -83,8 +88,6 @@ cleanup() {
     fi
     $SUDO chown www-data:www-data "$LOG_FILE" || true
     $SUDO chmod 664 "$LOG_FILE" || true
-    $SUDO chown www-data:www-data "$LOG_DIR/abaqua" || true
-    $SUDO chmod 664 "$LOG_DIR/abaqua" || true
 }
 trap cleanup EXIT
 # --------------------------------
