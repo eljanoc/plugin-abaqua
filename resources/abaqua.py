@@ -118,21 +118,15 @@ def extract_results(lines, dt_limite, mois_dict, resultats, existing_datetimes):
 
         date_str = match_date.group(0)
         dt_ligne = convertir_date_fr(date_str)
-        if dt_ligne is None:
+        if dt_ligne and dt_ligne.date() == today:
             continue
-
-        if dt_ligne.date() > today:
-            continue
-
-        if dt_limite and dt_ligne <= dt_limite:
+        if dt_ligne and dt_limite and dt_ligne <= dt_limite:
             stop_execution = True
             break
 
         valeur = None
-        for j in range(i + 1, min(i + 3, len(lines))):
+        for j in range(i, min(i + 12, len(lines))):
             candidate = lines[j]
-            if date_pattern.search(candidate):
-                continue
             if "indisponible" in candidate.lower():
                 continue
             val_match = value_pattern.search(candidate)
