@@ -5,7 +5,7 @@ if (!isConnect('admin')) {
 
 $pythonPath = config::byKey('pythonPath', 'abaqua', '');
 $debugMode = config::byKey('debugMode', 'abaqua', 0);
-$debugPath = config::byKey('debugPath', 'abaqua', '/var/www/html/log/abaqua_debug');
+$debugPath = config::byKey('debugPath', 'abaqua', '/var/www/html/log');
 $debugMaxFiles = config::byKey('debugMaxFiles', 'abaqua', 20);
 ?>
 <fieldset>
@@ -31,8 +31,9 @@ $debugMaxFiles = config::byKey('debugMaxFiles', 'abaqua', 20);
     <div class="form-group">
         <label class="col-sm-3 control-label">{{Dossier de debug}}</label>
         <div class="col-sm-5">
-            <input class="configKey form-control" data-l1key="debugPath" value="<?php echo init('debugPath', $debugPath); ?>" placeholder="/var/www/html/log/abaqua_debug" />
+            <input class="configKey form-control" data-l1key="debugPath" value="<?php echo init('debugPath', $debugPath); ?>" placeholder="/var/www/html/log" />
         </div>
+        <span class="col-sm-4 help-block">{{Pour voir les captures dans Analyse > Logs, utiliser de préférence /var/www/html/log.}}</span>
     </div>
     <div class="form-group">
         <label class="col-sm-3 control-label">{{Nombre max de fichiers}}</label>

@@ -12,7 +12,10 @@ from playwright.sync_api import sync_playwright
 os.environ.setdefault('PLAYWRIGHT_BROWSERS_PATH', '/var/www/.cache/ms-playwright')
 
 DEBUG_MODE = str(os.environ.get('ABAQUA_DEBUG_MODE', '0')).strip().lower() in ('1', 'true', 'yes', 'on')
-DEBUG_PATH = os.environ.get('ABAQUA_DEBUG_PATH', '/var/www/html/log/abaqua_debug').strip() or '/var/www/html/log/abaqua_debug'
+JEEDOM_LOG_ROOT = '/var/www/html/log'
+LEGACY_DEBUG_PATH = os.path.join(JEEDOM_LOG_ROOT, 'abaqua_debug')
+DEBUG_FILE_PREFIX = 'abaqua_debug_'
+DEBUG_PATH = os.environ.get('ABAQUA_DEBUG_PATH', JEEDOM_LOG_ROOT).strip() or JEEDOM_LOG_ROOT
 try:
     DEBUG_MAX_FILES = max(1, int(os.environ.get('ABAQUA_DEBUG_MAX_FILES', '20')))
 except ValueError:
@@ -23,6 +26,13 @@ def log_debug(message):
     print(message, file=sys.stderr)
 
 
+def resolve_debug_dir():
+    normalized = os.path.abspath(DEBUG_PATH)
+    if normalized == LEGACY_DEBUG_PATH:
+        return JEEDOM_LOG_ROOT
+    return normalized
+
+
 def prune_debug_files(path, max_files):
     try:
         if not os.path.isdir(path):
@@ -30,7 +40,7 @@ def prune_debug_files(path, max_files):
         files = []
         for entry in os.listdir(path):
             full = os.path.join(path, entry)
-            if os.path.isfile(full):
+            if os.path.isfile(full) and entry.startswith(DEBUG_FILE_PREFIX):
                 files.append(full)
         files.sort(key=lambda f: os.path.getmtime(f), reverse=True)
         while len(files) > max_files:
@@ -46,10 +56,11 @@ def save_debug_file(name, payload, kind='txt'):
     if not DEBUG_MODE:
         return None
     try:
-        os.makedirs(DEBUG_PATH, exist_ok=True)
+        target_dir = resolve_debug_dir()
+        os.makedirs(target_dir, exist_ok=True)
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
-        filename = f'{timestamp}_{name}.{kind}'
-        filepath = os.path.join(DEBUG_PATH, filename)
+        filename = f'{DEBUG_FILE_PREFIX}{timestamp}_{name}.{kind}'
+        filepath = os.path.join(target_dir, filename)
         if kind == 'html':
             with open(filepath, 'w', encoding='utf-8') as fh:
                 fh.write(payload)
@@ -59,7 +70,7 @@ def save_debug_file(name, payload, kind='txt'):
         else:
             with open(filepath, 'w', encoding='utf-8') as fh:
                 fh.write(str(payload))
-        prune_debug_files(DEBUG_PATH, DEBUG_MAX_FILES)
+        prune_debug_files(target_dir, DEBUG_MAX_FILES)
         return filepath
     except Exception as exc:
         log_debug(f"Erreur lors de la sauvegarde de debug : {exc}")
