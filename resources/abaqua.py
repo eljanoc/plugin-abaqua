@@ -11,9 +11,59 @@ from playwright.sync_api import sync_playwright
 # Forcer le bon cache Playwright quand le script est lancé depuis Jeedom
 os.environ.setdefault('PLAYWRIGHT_BROWSERS_PATH', '/var/www/.cache/ms-playwright')
 
+DEBUG_MODE = str(os.environ.get('ABAQUA_DEBUG_MODE', '0')).strip().lower() in ('1', 'true', 'yes', 'on')
+DEBUG_PATH = os.environ.get('ABAQUA_DEBUG_PATH', '/var/www/html/log/abaqua_debug').strip() or '/var/www/html/log/abaqua_debug'
+try:
+    DEBUG_MAX_FILES = max(1, int(os.environ.get('ABAQUA_DEBUG_MAX_FILES', '20')))
+except ValueError:
+    DEBUG_MAX_FILES = 20
+
 # Fonction pour que les print aillent dans le log Jeedom
 def log_debug(message):
     print(message, file=sys.stderr)
+
+
+def prune_debug_files(path, max_files):
+    try:
+        if not os.path.isdir(path):
+            return
+        files = []
+        for entry in os.listdir(path):
+            full = os.path.join(path, entry)
+            if os.path.isfile(full):
+                files.append(full)
+        files.sort(key=lambda f: os.path.getmtime(f), reverse=True)
+        while len(files) > max_files:
+            try:
+                os.remove(files.pop())
+            except OSError:
+                break
+    except Exception:
+        pass
+
+
+def save_debug_file(name, payload, kind='txt'):
+    if not DEBUG_MODE:
+        return None
+    try:
+        os.makedirs(DEBUG_PATH, exist_ok=True)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+        filename = f'{timestamp}_{name}.{kind}'
+        filepath = os.path.join(DEBUG_PATH, filename)
+        if kind == 'html':
+            with open(filepath, 'w', encoding='utf-8') as fh:
+                fh.write(payload)
+        elif kind == 'json':
+            with open(filepath, 'w', encoding='utf-8') as fh:
+                json.dump(payload, fh, ensure_ascii=False, indent=2)
+        else:
+            with open(filepath, 'w', encoding='utf-8') as fh:
+                fh.write(str(payload))
+        prune_debug_files(DEBUG_PATH, DEBUG_MAX_FILES)
+        return filepath
+    except Exception as exc:
+        log_debug(f"Erreur lors de la sauvegarde de debug : {exc}")
+        return None
 
 # === IDENTIFICATION DU SCRIPT ===
 VERSION = "1.64.7_DYNAMIQUE"
@@ -174,6 +224,7 @@ def run():
     mois_dict = {"janvier":"01", "février":"02", "fevrier":"02", "mars":"03", "avril":"04", "mai":"05", "juin":"06", "juillet":"07", "août":"08", "aout":"08", "septembre":"09", "octobre":"10", "novembre":"11", "décembre":"12", "decembre":"12"}
 
     # --- DÉBUT DU BLOC DE SÉCURITÉ ---
+    current_page = None
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(
@@ -189,6 +240,7 @@ def run():
             )
             
             page = context.new_page()
+            current_page = page
             page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
             log_debug("1. Connexion...")
@@ -248,32 +300,41 @@ def run():
                 else:
                     log_debug("   -> Bouton précédent introuvable ou pagination terminée.")
                     break
-                
+            
             if not resultats:
                 if stop_execution:
                     log_debug("   -> ℹ️ Bilan : Aucune nouvelle donnée à récupérer, Jeedom est déjà à jour.")
                 else:
                     log_debug("   -> ⚠️ Bilan : Aucun relevé n'a pu être extrait.")
+                    if DEBUG_MODE and current_page is not None:
+                        try:
+                            html = current_page.content()
+                            save_debug_file('empty_page', html, 'html')
+                        except Exception as exc:
+                            log_debug(f"Impossible de sauvegarder la page vide : {exc}")
             else:
                 log_debug(f"   -> ✅ Bilan : {len(resultats)} nouvelle(s) valeur(s) extraite(s).")
 
             browser.close()
-            maintenant = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            log_debug(f"\n---Fin du script normale: {maintenant} ---\n")
-
-    except Exception as e:
-        log_debug("\n===========================================")
-        log_debug("❌ ERREUR CRITIQUE DANS ABAQUA")
-        log_debug("===========================================")
-        log_debug(f"Type d'erreur : {type(e).__name__}")
-        log_debug(f"Message       : {str(e)}")
-        log_debug("--- TRACEBACK COMPLET ---")
-        log_debug(traceback.format_exc())
-        log_debug("===========================================\n")
-        
+    except Exception as exc:
+        log_debug(f"Erreur critique du scraping : {exc}")
+        traceback.print_exc(file=sys.stderr)
+        if DEBUG_MODE and current_page is not None:
+            try:
+                save_debug_file('error_page', current_page.content(), 'html')
+            except Exception:
+                pass
+        save_debug_file('error', {
+            'error': str(exc),
+            'traceback': traceback.format_exc(),
+            'url': f'https://{ABAQUA_URL}/consommation',
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }, 'json')
         print(json.dumps([]))
         sys.exit(1)
 
+    maintenant = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_debug(f"\n---Fin du script normale: {maintenant} ---\n")
     print(json.dumps(resultats))
 
 if __name__ == "__main__":

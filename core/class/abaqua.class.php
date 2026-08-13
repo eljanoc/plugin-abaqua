@@ -217,6 +217,9 @@ class abaqua extends eqLogic {
         $processEnv['ABAQUA_EQ_NAME'] = $this->getHumanName();
         $processEnv['ABAQUA_EMAIL'] = $username;
         $processEnv['ABAQUA_PASSWORD'] = $password;
+        $processEnv['ABAQUA_DEBUG_MODE'] = (config::byKey('debugMode', 'abaqua', 0) ? '1' : '0');
+        $processEnv['ABAQUA_DEBUG_PATH'] = config::byKey('debugPath', 'abaqua', '/var/www/html/log/abaqua_debug');
+        $processEnv['ABAQUA_DEBUG_MAX_FILES'] = (string) max(1, intval(config::byKey('debugMaxFiles', 'abaqua', 20)));
 
         $process = proc_open($cmd, $descriptorspec, $pipes, null, $processEnv);
         $output = '';
