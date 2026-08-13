@@ -1,5 +1,13 @@
 # Abaqua
 
+## Important
+
+Ce plugin nécessite de disposer d'un compteur d'eau communicant compatible avec la plateforme du fournisseur.
+
+Il a été testé avec le site Kyrnolia (Veolia Corse). Il est donc prévu pour fonctionner avec ce type d'interface et devrait également fonctionner sur le site Veolia ainsi que sur certaines de ses succursales, selon la structure de la plateforme et les éventuels changements de code.
+
+Pour les autres fournisseurs d'eau, le plugin devra probablement être adapté aux spécificités de leur site et de leur mécanisme d'accès aux données.
+
 Abaqua est un plugin Jeedom pour récupérer automatiquement la consommation d'eau quotidienne depuis le portail de votre fournisseur d'eau, puis l'historiser dans Jeedom.
 
 ## Description
@@ -10,14 +18,6 @@ Le plugin se connecte à votre espace client, lit les consommations journalière
 - la date de collecte : la date où le plugin a vérifié le site
 
 Il est conçu pour fonctionner avec des fournisseurs compatibles, par défaut Kyrnolia, et pour rester robuste face aux changements de page ou de structure du site.
-
-## Important
-
-Ce plugin nécessite de disposer d'un compteur d'eau communicant compatible avec la plateforme du fournisseur.
-
-Il a été testé avec le site Kyrnolia (Veolia Corse). Il est donc prévu pour fonctionner avec ce type d'interface et devrait également fonctionner sur le site Veolia ainsi que sur certaines de ses succursales, selon la structure de la plateforme et les éventuels changements de code.
-
-Pour les autres fournisseurs d'eau, le plugin devra probablement être adapté aux spécificités de leur site et de leur mécanisme d'accès aux données.
 
 ## Fonctionnalités
 
