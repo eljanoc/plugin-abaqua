@@ -262,7 +262,7 @@ class abaqua extends eqLogic {
                             $line = substr($stderr_buffer, 0, $pos);
                             $stderr_buffer = substr($stderr_buffer, $pos + 1);
                             // Append to the global Jeedom plugin log
-                            file_put_contents($log_path, date('Y-m-d H:i:s') . ' [python debug] ' . trim($line) . PHP_EOL, FILE_APPEND);
+                            file_put_contents($log_path, date('Y-m-d H:i:s') . ' ' . trim($line) . PHP_EOL, FILE_APPEND);
                         }
                     }
                 }
@@ -274,7 +274,7 @@ class abaqua extends eqLogic {
             }
             if ($stderr_buffer !== '') {
                 // Append remaining stderr buffer to the global Jeedom plugin log
-                file_put_contents($log_path, date('Y-m-d H:i:s') . ' [python debug] ' . trim($stderr_buffer) . PHP_EOL, FILE_APPEND);
+                file_put_contents($log_path, date('Y-m-d H:i:s') . ' ' . trim($stderr_buffer) . PHP_EOL, FILE_APPEND);
             }
 
             $output .= stream_get_contents($pipes[1]);
