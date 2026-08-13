@@ -23,6 +23,21 @@
                 if (normalizedLogName === '') return;
 
                 var modal = $('#md_modal');
+                var stopExistingLogRefresh = function() {
+                    var control = document.getElementById('bt_eventLogStopStart');
+                    if (control && control.getAttribute('data-state') == '1') {
+                        control.setAttribute('data-state', '0');
+                        if (window.jeedom && jeedom.log && typeof jeedom.log.updateBtn === 'function') {
+                            jeedom.log.updateBtn(control);
+                        }
+                    }
+                    if (window.jeedom && jeedom.log && jeedom.log.timeout !== null) {
+                        clearTimeout(jeedom.log.timeout);
+                        jeedom.log.timeout = null;
+                    }
+                };
+
+                stopExistingLogRefresh();
                 modal.dialog({
                     title: 'Log de l\'équipement ' + normalizedLogName,
                     width: 800,
@@ -31,18 +46,7 @@
 
                 modal.load('index.php?v=d&modal=log.display&log=' + encodeURIComponent(normalizedLogName), function() {
                     var display = document.getElementById('pre_eventlog');
-                    var search = document.getElementById('in_eventLogSearch');
-                    var control = document.getElementById('bt_eventLogStopStart');
                     var modalContent = document.getElementById('md_modal');
-                    
-                    if (window.jeedom && jeedom.log && display && search && control) {
-                        jeedom.log.autoUpdateDelta({
-                            log: normalizedLogName,
-                            display: display,
-                            search: search,
-                            control: control
-                        });
-                    }
                     
                     // --- SCROLL AUTO CONTINU ---
                     if (display) {
@@ -64,6 +68,7 @@
                         // On nettoie proprement l'observateur quand on ferme la fenêtre modale
                         modal.one('dialogclose', function() {
                             observer.disconnect();
+                            stopExistingLogRefresh();
                         });
                     }
                 });

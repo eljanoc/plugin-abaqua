@@ -47,9 +47,26 @@ function abaqua_install_widget() {
     if (!file_exists($src)) throw new Exception('Fichier source introuvable: ' . $src);
 
     if (!@copy($src, $dest)) {
-        throw new Exception('Échec de la copie du widget: ' . $src . ' -> ' . $dest);
+        $sudo = 'sudo -n ';
+        if (class_exists('system') && method_exists('system', 'getCmdSudo')) {
+            $sudo = system::getCmdSudo();
+        }
+
+        $cmd = $sudo . 'cp ' . escapeshellarg($src) . ' ' . escapeshellarg($dest) . ' 2>&1';
+        $output = trim(shell_exec($cmd));
+        if (!file_exists($dest) || md5_file($src) !== md5_file($dest)) {
+            throw new Exception('Échec de la copie du widget: ' . $src . ' -> ' . $dest . ($output !== '' ? ' (' . $output . ')' : ''));
+        }
     }
-    @chmod($dest, 0644);
+
+    if (!@chmod($dest, 0644)) {
+        $sudo = 'sudo -n ';
+        if (class_exists('system') && method_exists('system', 'getCmdSudo')) {
+            $sudo = system::getCmdSudo();
+        }
+        @shell_exec($sudo . 'chmod 0644 ' . escapeshellarg($dest) . ' 2>&1');
+    }
+
     return true;
 }
 
