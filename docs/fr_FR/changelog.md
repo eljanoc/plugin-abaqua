@@ -1,5 +1,12 @@
 # Changelog Abaqua
 
+## Version 1.3 (Beta)
+* Migration de la collecte vers une stratégie API-first avec fallback DOM uniquement en secours.
+* Stabilisation de la récupération journalière en capturant les réponses réseau de type `journalieres` et en les dédupliquant.
+* Correction du comportement en historique vide : le plugin ne repose plus uniquement sur un moment précis du DOM pour détecter les nouvelles données.
+* Renforcement de la déduplication sur les dates déjà historisées pour éviter les doublons sur une même journée.
+* Amélioration de la logique de pagination et du traitement du mode dynamique sans date limite.
+
 ## Version 1.2 (Beta)
 * Ajout d’un mode de debug de scraping configurable depuis la configuration du plugin.
 * Sauvegarde des pages HTML et des payloads JSON en cas d’échec d’authentification, de redirection vers la page de connexion, ou de page vide/inexploitée.
