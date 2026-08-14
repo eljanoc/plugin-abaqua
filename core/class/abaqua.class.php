@@ -145,6 +145,24 @@ class abaqua extends eqLogic {
     public function refreshData() {
         log::add('abaqua', 'info', '[php] ' . $this->getHumanName() . ' : Début de la synchronisation Abaqua.');
 
+        $lockDir = jeedom::getTmpFolder('abaqua');
+        if (!is_dir($lockDir)) {
+            @mkdir($lockDir, 0755, true);
+        }
+        $lockPath = $lockDir . '/refresh_' . $this->getId() . '.lock';
+        $lockHandle = @fopen($lockPath, 'c');
+        if ($lockHandle === false) {
+            log::add('abaqua', 'error', '[php] ' . $this->getHumanName() . ' : Impossible de créer le verrou de synchronisation.');
+            return;
+        }
+        if (!@flock($lockHandle, LOCK_EX | LOCK_NB)) {
+            log::add('abaqua', 'info', '[php] ' . $this->getHumanName() . ' : Synchronisation déjà en cours, exécution ignorée.');
+            fclose($lockHandle);
+            return;
+        }
+
+        try {
+
         $username = $this->getConfiguration('username');
         $password = $this->getConfiguration('password');
         
@@ -371,6 +389,10 @@ class abaqua extends eqLogic {
             // On met à jour l'heure de dernière communication de l'équipement
             $this->setStatus('lastCommunication', date('Y-m-d H:i:s'));
             log::add('abaqua', 'info', '[php] ' . $this->getHumanName() . ' : Synchronisation terminée avec succès.');
+        }
+        } finally {
+            @flock($lockHandle, LOCK_UN);
+            @fclose($lockHandle);
         }
     }
 }

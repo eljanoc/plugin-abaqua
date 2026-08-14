@@ -10,11 +10,13 @@ from playwright.sync_api import sync_playwright
 
 os.environ.setdefault('PLAYWRIGHT_BROWSERS_PATH', '/var/www/.cache/ms-playwright')
 
+RUN_ID = datetime.now().strftime('%Y%m%d%H%M%S')
+
 def log_debug(message):
-    print(message, file=sys.stderr)
+    print(f"[run:{RUN_ID}] {message}", file=sys.stderr)
 
 # === IDENTIFICATION DU SCRIPT ===
-VERSION = "3.1_GLOBAL_LISTENER_STABLE"
+VERSION = "3.2_LOCKED_RUNID_STABLE"
 # ================================
 
 legacy_email = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -58,6 +60,31 @@ def click_previous_page(page):
             element = page.locator(selector).first
             if element.is_visible(timeout=2000):
                 element.click(force=True)
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def is_login_page(page):
+    try:
+        url = (page.url or '').lower()
+        if '/connexion' in url or '/login' in url or '/callback' in url:
+            return True
+    except Exception:
+        pass
+
+    selectors = [
+        "input[type='email']",
+        "input[name*='mail']",
+        "#username",
+        "input[type='password']",
+        "button:has-text('Se connecter')",
+        "button:has-text('Connexion')",
+    ]
+    for selector in selectors:
+        try:
+            if page.locator(selector).count() > 0:
                 return True
         except Exception:
             continue
@@ -127,6 +154,7 @@ def run():
 
     resultats = []
     api_responses = []
+    api_seen_dates = set()
     
     try:
         with sync_playwright() as p:
@@ -137,13 +165,21 @@ def run():
 
             # --- RADAR GLOBAL PERMANENT ---
             def handle_response(response):
-                if "journalieres" in response.url and response.status == 200:
+                url = (response.url or '').lower()
+                if "/journalieres" in url and "consommations/" in url and response.status == 200:
                     try:
                         data = response.json()
                         if isinstance(data, list):
                             for item in data:
-                                if item not in api_responses:
-                                    api_responses.append(item)
+                                if not isinstance(item, dict):
+                                    continue
+                                date_releve = item.get('date_releve')
+                                if not date_releve:
+                                    continue
+                                if date_releve in api_seen_dates:
+                                    continue
+                                api_seen_dates.add(date_releve)
+                                api_responses.append(item)
                             log_debug(f"   -> 📡 API : Bloc intercepté ({len(data)} jours). Total cumulé : {len(api_responses)}")
                     except Exception as e:
                         log_debug(f"   -> ⚠️ API : Erreur de lecture JSON - {e}")
@@ -160,6 +196,11 @@ def run():
             page.fill("input[type='password']", ABAQUA_PASSWORD)
             page.keyboard.press("Enter")
             page.wait_for_timeout(5000)
+
+            if is_login_page(page):
+                log_debug("   -> ❌ Échec d'authentification : la page de connexion est encore affichée.")
+                print(json.dumps([]))
+                sys.exit(1)
 
             log_debug("2. Navigation vers la consommation...")
             page.goto(f"https://{ABAQUA_URL}/consommation")
@@ -186,27 +227,34 @@ def run():
                 pages_vides = 0
                 
                 while not stop_execution:
-                    taille_avant_traitement = len(resultats)
-                    
-                    for jour in list(api_responses):
+                    sorted_days = []
+                    for jour in api_responses:
                         date_releve = jour.get('date_releve')
                         conso_dict = jour.get('consommation')
-                        
                         if not date_releve or not conso_dict:
                             continue
-                            
                         litre = conso_dict.get('litre')
                         if litre is None:
                             continue
-                            
-                        dt_ligne = datetime.strptime(date_releve, "%Y-%m-%d")
+
+                        try:
+                            dt_ligne = datetime.strptime(date_releve[:10], "%Y-%m-%d")
+                        except ValueError:
+                            log_debug(f"   -> ⚠️ API : date invalide ignorée ({date_releve})")
+                            continue
+
+                        sorted_days.append((dt_ligne, date_releve[:10], litre))
+
+                    sorted_days.sort(key=lambda x: x[0], reverse=True)
+
+                    for dt_ligne, date_releve, litre in sorted_days:
                         if dt_ligne.date() == today:
                             continue
-                            
+
                         if dt_limite and dt_ligne <= dt_limite:
                             stop_execution = True
-                            break 
-                            
+                            break
+
                         datetime_jeedom = f"{date_releve} 23:59:59"
                         if datetime_jeedom not in existing_datetimes:
                             existing_datetimes.add(datetime_jeedom)
