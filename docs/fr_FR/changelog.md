@@ -1,5 +1,11 @@
 # Changelog Abaqua
 
+## Version 2.1.1 (Beta)
+* Ajout d'un verrou d'exécution côté plugin pour empêcher les synchronisations concurrentes sur un même équipement.
+* Correction des explorations en double causées par des lancements simultanés du script Python.
+* Ajout d'un identifiant d'exécution (`run_id`) dans les logs Python pour tracer clairement chaque run.
+* Renforcement de la fiabilité du mode API-first (tri et filtrage plus robustes des jours journaliers).
+
 ## Version 1.3 (Beta)
 * Migration de la collecte vers une stratégie API-first avec fallback DOM uniquement en secours.
 * Stabilisation de la récupération journalière en capturant les réponses réseau de type `journalieres` et en les dédupliquant.
