@@ -325,11 +325,11 @@ class abaqua extends eqLogic {
 
                 if (is_object($cmd_conso)) {
                     $existing = array();
-                    $sql = 'SELECT datetime FROM history WHERE cmd_id = :cmd_id UNION SELECT datetime FROM historyArch WHERE cmd_id = :cmd_id';
+                    $sql = 'SELECT DATE(datetime) AS date_only FROM history WHERE cmd_id = :cmd_id UNION SELECT DATE(datetime) AS date_only FROM historyArch WHERE cmd_id = :cmd_id';
                     $rows = DB::Prepare($sql, array('cmd_id' => $cmd_conso->getId()), DB::FETCH_TYPE_ALL);
                     foreach ($rows as $row) {
-                        if (isset($row['datetime'])) {
-                            $existing[$row['datetime']] = true;
+                        if (isset($row['date_only'])) {
+                            $existing[$row['date_only']] = true;
                         }
                     }
 
@@ -337,12 +337,17 @@ class abaqua extends eqLogic {
                     foreach ($data as $r) {
                         if (isset($r['conso']) && isset($r['datetime'])) {
                             $datetime = substr($r['datetime'], 0, 19);
-                            if (isset($existing[$datetime])) {
+                            $dateKey = substr($datetime, 0, 10);
+
+                            // Jeedom peut normaliser la même journée avec des heures différentes.
+                            // On dé-duplique au niveau du jour pour éviter tout doublon sur la même date.
+                            if (isset($existing[$dateKey])) {
                                 continue;
                             }
+
                             // Jeedom historise la valeur et force l'alignement des deux dates
                             $cmd_conso->event($r['conso'], $datetime);
-                            $existing[$datetime] = true;
+                            $existing[$dateKey] = true;
                             $count++;
                         }
                     }

@@ -11,73 +11,12 @@ from playwright.sync_api import sync_playwright
 # Forcer le bon cache Playwright quand le script est lancé depuis Jeedom
 os.environ.setdefault('PLAYWRIGHT_BROWSERS_PATH', '/var/www/.cache/ms-playwright')
 
-DEBUG_MODE = str(os.environ.get('ABAQUA_DEBUG_MODE', '0')).strip().lower() in ('1', 'true', 'yes', 'on')
-JEEDOM_LOG_ROOT = '/var/www/html/log'
-LEGACY_DEBUG_PATH = os.path.join(JEEDOM_LOG_ROOT, 'abaqua_debug')
-DEBUG_FILE_PREFIX = 'abaqua_debug_'
-DEBUG_PATH = os.environ.get('ABAQUA_DEBUG_PATH', JEEDOM_LOG_ROOT).strip() or JEEDOM_LOG_ROOT
-try:
-    DEBUG_MAX_FILES = max(1, int(os.environ.get('ABAQUA_DEBUG_MAX_FILES', '20')))
-except ValueError:
-    DEBUG_MAX_FILES = 20
-
 # Fonction pour que les print aillent dans le log Jeedom
 def log_debug(message):
     print(message, file=sys.stderr)
 
-
-def resolve_debug_dir():
-    normalized = os.path.abspath(DEBUG_PATH)
-    if normalized == LEGACY_DEBUG_PATH:
-        return JEEDOM_LOG_ROOT
-    return normalized
-
-
-def prune_debug_files(path, max_files):
-    try:
-        if not os.path.isdir(path):
-            return
-        files = []
-        for entry in os.listdir(path):
-            full = os.path.join(path, entry)
-            if os.path.isfile(full) and entry.startswith(DEBUG_FILE_PREFIX):
-                files.append(full)
-        files.sort(key=lambda f: os.path.getmtime(f), reverse=True)
-        while len(files) > max_files:
-            try:
-                os.remove(files.pop())
-            except OSError:
-                break
-    except Exception:
-        pass
-
-
-def save_debug_file(name, payload, kind='txt'):
-    if not DEBUG_MODE:
-        return None
-    try:
-        target_dir = resolve_debug_dir()
-        os.makedirs(target_dir, exist_ok=True)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
-        filename = f'{DEBUG_FILE_PREFIX}{timestamp}_{name}.{kind}'
-        filepath = os.path.join(target_dir, filename)
-        if kind == 'html':
-            with open(filepath, 'w', encoding='utf-8') as fh:
-                fh.write(payload)
-        elif kind == 'json':
-            with open(filepath, 'w', encoding='utf-8') as fh:
-                json.dump(payload, fh, ensure_ascii=False, indent=2)
-        else:
-            with open(filepath, 'w', encoding='utf-8') as fh:
-                fh.write(str(payload))
-        prune_debug_files(target_dir, DEBUG_MAX_FILES)
-        return filepath
-    except Exception as exc:
-        log_debug(f"Erreur lors de la sauvegarde de debug : {exc}")
-        return None
-
 # === IDENTIFICATION DU SCRIPT ===
-VERSION = "1.64.7_DYNAMIQUE"
+VERSION = "1.64.7_DYNAMIQUE_CORRIGE"
 # ================================
 
 legacy_email = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -166,34 +105,6 @@ def click_previous_page(page):
     return False
 
 
-def is_login_page(page):
-    try:
-        url = (page.url or '').lower()
-        if '/connexion' in url or '/login' in url or '/callback' in url:
-            return True
-    except Exception:
-        pass
-
-    selectors = [
-        "input[type='email']",
-        "input[name*='mail']",
-        "#username",
-        "input[type='password']",
-        "button:has-text('Se connecter')",
-        "button:has-text('Connexion')",
-        "text='Bienvenue sur votre espace'",
-        "text='Particulier'",
-    ]
-
-    for selector in selectors:
-        try:
-            if page.locator(selector).count() > 0:
-                return True
-        except Exception:
-            continue
-    return False
-
-
 def extract_results(lines, dt_limite, mois_dict, resultats, existing_datetimes):
     date_pattern = re.compile(r"(?<!\d)(?P<day>\d{1,2})(?:\s*er)?\s+(?P<month>janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s+(?P<year>20\d{2})", re.IGNORECASE)
     value_pattern = re.compile(r"(?P<val>\d{1,3}(?:[ \u00A0]\d{3})*(?:[.,]\d+)?)\s*[Ll]\b")
@@ -216,8 +127,18 @@ def extract_results(lines, dt_limite, mois_dict, resultats, existing_datetimes):
         valeur = None
         for j in range(i, min(i + 12, len(lines))):
             candidate = lines[j]
+            
+            # --- SÉCURITÉ ANTI-DÉBORDEMENT ---
+            # Si on est sur une ligne suivante et qu'on tombe sur une NOUVELLE date,
+            # on arrête la recherche pour ne pas voler la valeur du jour précédent.
+            if j > i and date_pattern.search(candidate):
+                break
+            # ---------------------------------
+
+            # On arrête aussi de chercher si c'est explicitement indisponible
             if "indisponible" in candidate.lower():
-                continue
+                break
+
             val_match = value_pattern.search(candidate)
             if val_match:
                 val_str = val_match.group('val').replace('\u00A0', '').replace(' ', '').replace(',', '.')
@@ -263,7 +184,6 @@ def run():
     mois_dict = {"janvier":"01", "février":"02", "fevrier":"02", "mars":"03", "avril":"04", "mai":"05", "juin":"06", "juillet":"07", "août":"08", "aout":"08", "septembre":"09", "octobre":"10", "novembre":"11", "décembre":"12", "decembre":"12"}
 
     # --- DÉBUT DU BLOC DE SÉCURITÉ ---
-    current_page = None
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(
@@ -279,7 +199,6 @@ def run():
             )
             
             page = context.new_page()
-            current_page = page
             page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
             log_debug("1. Connexion...")
@@ -296,29 +215,11 @@ def run():
             page.keyboard.press("Enter")
             page.wait_for_timeout(5000)
 
-            if is_login_page(page):
-                log_debug("[py] Échec d'authentification : la page de connexion est encore affichée après soumission.")
-                if DEBUG_MODE:
-                    saved = save_debug_file('login_error_page', page.content(), 'html')
-                    if saved:
-                        log_debug(f"[py] Capture HTML d'échec d'authentification sauvegardée dans : {saved}")
-                print(json.dumps([]))
-                sys.exit(1)
-
             log_debug("2. Navigation...")
             page.wait_for_load_state("domcontentloaded")
             page.goto(f"https://{ABAQUA_URL}/consommation")
             page.wait_for_load_state("domcontentloaded")
             time.sleep(3)
-
-            if is_login_page(page):
-                log_debug("[py] Redirection vers la page de connexion détectée après accès à la consommation : le site n'a pas validé la session.")
-                if DEBUG_MODE:
-                    saved = save_debug_file('consumption_login_redirect', page.content(), 'html')
-                    if saved:
-                        log_debug(f"[py] Capture HTML de redirection vers login sauvegardée dans : {saved}")
-                print(json.dumps([]))
-                sys.exit(1)
             
             try: 
                 page.locator("text='Du mois'").first.click(timeout=5000)
@@ -357,48 +258,32 @@ def run():
                 else:
                     log_debug("   -> Bouton précédent introuvable ou pagination terminée.")
                     break
-            
+                
             if not resultats:
                 if stop_execution:
                     log_debug("   -> ℹ️ Bilan : Aucune nouvelle donnée à récupérer, Jeedom est déjà à jour.")
                 else:
                     log_debug("   -> ⚠️ Bilan : Aucun relevé n'a pu être extrait.")
-                    if DEBUG_MODE and current_page is not None:
-                        try:
-                            html = current_page.content()
-                            saved = save_debug_file('empty_page', html, 'html')
-                            if saved:
-                                log_debug(f"[py] Page HTML vide/inexploitée sauvegardée dans : {saved}")
-                        except Exception as exc:
-                            log_debug(f"[py] Impossible de sauvegarder la page vide : {exc}")
             else:
                 log_debug(f"   -> ✅ Bilan : {len(resultats)} nouvelle(s) valeur(s) extraite(s).")
 
             browser.close()
-    except Exception as exc:
-        log_debug(f"[py] Erreur critique du scraping : {exc}")
-        traceback.print_exc(file=sys.stderr)
-        if DEBUG_MODE and current_page is not None:
-            try:
-                saved = save_debug_file('error_page', current_page.content(), 'html')
-                if saved:
-                    log_debug(f"[py] Capture HTML d'erreur de scraping sauvegardée dans : {saved}")
-            except Exception:
-                pass
-        debug_payload = {
-            'error': str(exc),
-            'traceback': traceback.format_exc(),
-            'url': f'https://{ABAQUA_URL}/consommation',
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-        saved = save_debug_file('error', debug_payload, 'json')
-        if saved:
-            log_debug(f"[py] Payload JSON de debug sauvegardé dans : {saved}")
+            maintenant = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            log_debug(f"\n---Fin du script normale: {maintenant} ---\n")
+
+    except Exception as e:
+        log_debug("\n===========================================")
+        log_debug("❌ ERREUR CRITIQUE DANS ABAQUA")
+        log_debug("===========================================")
+        log_debug(f"Type d'erreur : {type(e).__name__}")
+        log_debug(f"Message       : {str(e)}")
+        log_debug("--- TRACEBACK COMPLET ---")
+        log_debug(traceback.format_exc())
+        log_debug("===========================================\n")
+        
         print(json.dumps([]))
         sys.exit(1)
 
-    maintenant = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log_debug(f"\n---Fin du script normale: {maintenant} ---\n")
     print(json.dumps(resultats))
 
 if __name__ == "__main__":
