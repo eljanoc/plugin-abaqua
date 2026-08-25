@@ -38,7 +38,7 @@ function abaqua_remove() {
     try {
         log::add('abaqua', 'info', 'Suppression des dépendances locales Abaqua');
         abaqua_remove_runtime_dependencies();
-        log::add('abaqua', 'info', 'Dépendances locales Abaqua supprimées (/var/www/abaqua_venv, /var/www/.cache/ms-playwright)');
+        log::add('abaqua', 'info', 'Dépendances locales Abaqua supprimées (resources/abaqua_venv, data/ms-playwright)');
     } catch (Exception $e) {
         log::add('abaqua', 'error', 'Erreur lors de la suppression des dépendances locales Abaqua : ' . $e->getMessage());
     }

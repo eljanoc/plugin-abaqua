@@ -88,7 +88,11 @@ function abaqua_remove_widget() {
 }
 
 function abaqua_remove_runtime_dependencies() {
-    $targets = array('/var/www/abaqua_venv', '/var/www/.cache/ms-playwright');
+    $webroot = realpath(dirname(__FILE__) . '/..');
+    $targets = array(
+        $webroot . '/resources/abaqua_venv',
+        $webroot . '/data/ms-playwright'
+    );
     foreach ($targets as $target) {
         if (!file_exists($target)) {
             continue;

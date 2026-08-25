@@ -3,6 +3,13 @@ require_once dirname(__FILE__) . '/../../../../core/php/core.inc.php';
 
 class abaqua extends eqLogic {
 
+    public static function backupExclude() {
+        return [
+            'resources/abaqua_venv',
+            'data'
+        ];
+    }
+
     // --- 1. GESTION DES DEPENDANCES ---
     
     private static function getPluginBasePath() {
@@ -17,13 +24,18 @@ class abaqua extends eqLogic {
             return $configuredPath;
         }
 
-        $externalPath = '/var/www/abaqua_venv/bin/python';
-        if (file_exists($externalPath)) {
-            return $externalPath;
+        $pluginPath = self::getPluginBasePath();
+        $resourcesVenvPath = $pluginPath . '/resources/abaqua_venv/bin/python';
+        if (file_exists($resourcesVenvPath)) {
+            return $resourcesVenvPath;
         }
 
-        $pluginPath = self::getPluginBasePath();
-        return $pluginPath . '/abaqua_venv/bin/python';
+        $dataVenvPath = $pluginPath . '/data/abaqua_venv/bin/python';
+        if (file_exists($dataVenvPath)) {
+            return $dataVenvPath;
+        }
+
+        return $resourcesVenvPath;
     }
 
 
@@ -145,6 +157,24 @@ class abaqua extends eqLogic {
     public function refreshData() {
         log::add('abaqua', 'info', '[php] ' . $this->getHumanName() . ' : Début de la synchronisation Abaqua.');
 
+        $lockDir = jeedom::getTmpFolder('abaqua');
+        if (!is_dir($lockDir)) {
+            @mkdir($lockDir, 0755, true);
+        }
+        $lockPath = $lockDir . '/refresh_' . $this->getId() . '.lock';
+        $lockHandle = @fopen($lockPath, 'c');
+        if ($lockHandle === false) {
+            log::add('abaqua', 'error', '[php] ' . $this->getHumanName() . ' : Impossible de créer le verrou de synchronisation.');
+            return;
+        }
+        if (!@flock($lockHandle, LOCK_EX | LOCK_NB)) {
+            log::add('abaqua', 'info', '[php] ' . $this->getHumanName() . ' : Synchronisation déjà en cours, exécution ignorée.');
+            fclose($lockHandle);
+            return;
+        }
+
+        try {
+
         $username = $this->getConfiguration('username');
         $password = $this->getConfiguration('password');
         
@@ -218,7 +248,7 @@ class abaqua extends eqLogic {
         $processEnv['ABAQUA_EMAIL'] = $username;
         $processEnv['ABAQUA_PASSWORD'] = $password;
         $processEnv['ABAQUA_DEBUG_MODE'] = (config::byKey('debugMode', 'abaqua', 0) ? '1' : '0');
-        $processEnv['ABAQUA_DEBUG_PATH'] = config::byKey('debugPath', 'abaqua', '/var/www/html/log');
+        $processEnv['ABAQUA_DEBUG_PATH'] = config::byKey('debugPath', 'abaqua', dirname(__DIR__, 2) . '/data/debug');
         $processEnv['ABAQUA_DEBUG_MAX_FILES'] = (string) max(1, intval(config::byKey('debugMaxFiles', 'abaqua', 20)));
 
         $process = proc_open($cmd, $descriptorspec, $pipes, null, $processEnv);
@@ -325,11 +355,11 @@ class abaqua extends eqLogic {
 
                 if (is_object($cmd_conso)) {
                     $existing = array();
-                    $sql = 'SELECT datetime FROM history WHERE cmd_id = :cmd_id UNION SELECT datetime FROM historyArch WHERE cmd_id = :cmd_id';
+                    $sql = 'SELECT DATE(datetime) AS date_only FROM history WHERE cmd_id = :cmd_id UNION SELECT DATE(datetime) AS date_only FROM historyArch WHERE cmd_id = :cmd_id';
                     $rows = DB::Prepare($sql, array('cmd_id' => $cmd_conso->getId()), DB::FETCH_TYPE_ALL);
                     foreach ($rows as $row) {
-                        if (isset($row['datetime'])) {
-                            $existing[$row['datetime']] = true;
+                        if (isset($row['date_only'])) {
+                            $existing[$row['date_only']] = true;
                         }
                     }
 
@@ -337,12 +367,17 @@ class abaqua extends eqLogic {
                     foreach ($data as $r) {
                         if (isset($r['conso']) && isset($r['datetime'])) {
                             $datetime = substr($r['datetime'], 0, 19);
-                            if (isset($existing[$datetime])) {
+                            $dateKey = substr($datetime, 0, 10);
+
+                            // Jeedom peut normaliser la même journée avec des heures différentes.
+                            // On dé-duplique au niveau du jour pour éviter tout doublon sur la même date.
+                            if (isset($existing[$dateKey])) {
                                 continue;
                             }
+
                             // Jeedom historise la valeur et force l'alignement des deux dates
                             $cmd_conso->event($r['conso'], $datetime);
-                            $existing[$datetime] = true;
+                            $existing[$dateKey] = true;
                             $count++;
                         }
                     }
@@ -366,6 +401,10 @@ class abaqua extends eqLogic {
             // On met à jour l'heure de dernière communication de l'équipement
             $this->setStatus('lastCommunication', date('Y-m-d H:i:s'));
             log::add('abaqua', 'info', '[php] ' . $this->getHumanName() . ' : Synchronisation terminée avec succès.');
+        }
+        } finally {
+            @flock($lockHandle, LOCK_UN);
+            @fclose($lockHandle);
         }
     }
 }

@@ -8,29 +8,20 @@ import traceback
 from datetime import datetime
 from playwright.sync_api import sync_playwright
 
-# Forcer le bon cache Playwright quand le script est lancé depuis Jeedom
-os.environ.setdefault('PLAYWRIGHT_BROWSERS_PATH', '/var/www/.cache/ms-playwright')
+PLUGIN_DATA_DIR = '/var/www/html/plugins/abaqua/data'
+os.environ.setdefault('PLAYWRIGHT_BROWSERS_PATH', os.path.join(PLUGIN_DATA_DIR, 'ms-playwright'))
 
+RUN_ID = datetime.now().strftime('%Y%m%d%H%M%S')
 DEBUG_MODE = str(os.environ.get('ABAQUA_DEBUG_MODE', '0')).strip().lower() in ('1', 'true', 'yes', 'on')
-JEEDOM_LOG_ROOT = '/var/www/html/log'
-LEGACY_DEBUG_PATH = os.path.join(JEEDOM_LOG_ROOT, 'abaqua_debug')
+DEBUG_PATH = os.environ.get('ABAQUA_DEBUG_PATH', '/var/www/html/plugins/abaqua/data/debug').strip() or '/var/www/html/plugins/abaqua/data/debug'
 DEBUG_FILE_PREFIX = 'abaqua_debug_'
-DEBUG_PATH = os.environ.get('ABAQUA_DEBUG_PATH', JEEDOM_LOG_ROOT).strip() or JEEDOM_LOG_ROOT
 try:
     DEBUG_MAX_FILES = max(1, int(os.environ.get('ABAQUA_DEBUG_MAX_FILES', '20')))
 except ValueError:
     DEBUG_MAX_FILES = 20
 
-# Fonction pour que les print aillent dans le log Jeedom
 def log_debug(message):
-    print(message, file=sys.stderr)
-
-
-def resolve_debug_dir():
-    normalized = os.path.abspath(DEBUG_PATH)
-    if normalized == LEGACY_DEBUG_PATH:
-        return JEEDOM_LOG_ROOT
-    return normalized
+    print(f"[run:{RUN_ID}] {message}", file=sys.stderr)
 
 
 def prune_debug_files(path, max_files):
@@ -56,11 +47,10 @@ def save_debug_file(name, payload, kind='txt'):
     if not DEBUG_MODE:
         return None
     try:
-        target_dir = resolve_debug_dir()
-        os.makedirs(target_dir, exist_ok=True)
+        os.makedirs(DEBUG_PATH, exist_ok=True)
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
         filename = f'{DEBUG_FILE_PREFIX}{timestamp}_{name}.{kind}'
-        filepath = os.path.join(target_dir, filename)
+        filepath = os.path.join(DEBUG_PATH, filename)
         if kind == 'html':
             with open(filepath, 'w', encoding='utf-8') as fh:
                 fh.write(payload)
@@ -70,14 +60,14 @@ def save_debug_file(name, payload, kind='txt'):
         else:
             with open(filepath, 'w', encoding='utf-8') as fh:
                 fh.write(str(payload))
-        prune_debug_files(target_dir, DEBUG_MAX_FILES)
+        prune_debug_files(DEBUG_PATH, DEBUG_MAX_FILES)
         return filepath
     except Exception as exc:
-        log_debug(f"Erreur lors de la sauvegarde de debug : {exc}")
+        log_debug(f"   -> ⚠️ Debug : erreur d'écriture capture ({exc})")
         return None
 
 # === IDENTIFICATION DU SCRIPT ===
-VERSION = "1.64.7_DYNAMIQUE"
+VERSION = "3.3_DEBUG_PATH_STABLE"
 # ================================
 
 legacy_email = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -91,69 +81,30 @@ if not ABAQUA_EMAIL or not ABAQUA_PASSWORD:
     print(json.dumps([]))
     sys.exit(1)
 
-# On récupère le fournisseur en argument 4 (s'il existe), sinon on met Kyrnolia par défaut
-if len(sys.argv) > 4 and sys.argv[4].strip():
-    ABAQUA_URL = sys.argv[4].strip()
-else:
-    ABAQUA_URL = "www.kyrnolia.fr"
+ABAQUA_URL = sys.argv[4].strip() if len(sys.argv) > 4 and sys.argv[4].strip() else "www.kyrnolia.fr"
 
+# --- FONCTIONS UTILITAIRES ---
 def convertir_date_fr(date_str):
-    if not date_str:
-        return None
-    
+    if not date_str: return None
     date_str = str(date_str).strip()
-    
-    # 1. Si c'est une date venant de Jeedom (ex: "2026-07-21 23:59:59" ou "2026-07-21")
     if re.match(r"^\d{4}-\d{2}-\d{2}", date_str):
-        try:
-            return datetime.strptime(date_str[:10], "%Y-%m-%d")
-        except ValueError:
-            pass
+        try: return datetime.strptime(date_str[:10], "%Y-%m-%d")
+        except ValueError: pass
 
-    # 2. Sinon format texte français du site web
     mois_dict = {"janvier":"01", "février":"02", "fevrier":"02", "mars":"03", "avril":"04", "mai":"05", "juin":"06", "juillet":"07", "août":"08", "aout":"08", "septembre":"09", "octobre":"10", "novembre":"11", "décembre":"12", "decembre":"12"}
     match = re.search(r"(?<!\d)(?P<day>\d{1,2})(?:\s*er)?\s+(?P<month>janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s+(?P<year>20\d{2})", date_str, re.IGNORECASE)
     if match:
-        try:
-            jour = int(match.group("day"))
-            mois = int(mois_dict.get(match.group("month").lower(), 1))
-            annee = int(match.group("year"))
-            return datetime(annee, mois, jour)
-        except ValueError:
-            return None
+        try: return datetime(int(match.group("year")), int(mois_dict.get(match.group("month").lower(), 1)), int(match.group("day")))
+        except ValueError: return None
     return None
-
-def get_page_lines(page):
-    try:
-        texts = page.locator('body *').all_inner_texts()
-    except Exception:
-        texts = [page.inner_text('body')]
-
-    lines = []
-    previous_line = None
-    for text in texts:
-        if not isinstance(text, str):
-            continue
-        for line in text.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            if line == previous_line:
-                continue
-            lines.append(line)
-            previous_line = line
-    return lines
 
 def click_previous_page(page):
     selectors = [
-        "button:has(path[d*='M27.9937'])",
+        "button:has(path[d*='M27.9937'])", # La flèche gauche classique
+        "[aria-label*='Précédent']", 
+        "[aria-label*='précédent']", 
         "button:has-text('Précédent')",
-        "button:has-text('précédent')",
-        "button:has-text('Mois précédent')",
-        "a:has-text('Précédent')",
-        "a:has-text('précédent')",
-        "[aria-label*='Précédent']",
-        "[aria-label*='précédent']",
+        "button:has-text('précédent')"
     ]
     for selector in selectors:
         try:
@@ -181,10 +132,7 @@ def is_login_page(page):
         "input[type='password']",
         "button:has-text('Se connecter')",
         "button:has-text('Connexion')",
-        "text='Bienvenue sur votre espace'",
-        "text='Particulier'",
     ]
-
     for selector in selectors:
         try:
             if page.locator(selector).count() > 0:
@@ -193,8 +141,22 @@ def is_login_page(page):
             continue
     return False
 
+# --- METHODE 2 : FALLBACK (Ancienne méthode visuelle) ---
+def get_page_lines(page):
+    try: texts = page.locator('body *').all_inner_texts()
+    except Exception: texts = [page.inner_text('body')]
+    lines = []
+    previous_line = None
+    for text in texts:
+        if not isinstance(text, str): continue
+        for line in text.splitlines():
+            line = line.strip()
+            if not line or line == previous_line: continue
+            lines.append(line)
+            previous_line = line
+    return lines
 
-def extract_results(lines, dt_limite, mois_dict, resultats, existing_datetimes):
+def extract_results_dom(lines, dt_limite, mois_dict, resultats, existing_datetimes):
     date_pattern = re.compile(r"(?<!\d)(?P<day>\d{1,2})(?:\s*er)?\s+(?P<month>janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s+(?P<year>20\d{2})", re.IGNORECASE)
     value_pattern = re.compile(r"(?P<val>\d{1,3}(?:[ \u00A0]\d{3})*(?:[.,]\d+)?)\s*[Ll]\b")
     stop_execution = False
@@ -202,203 +164,265 @@ def extract_results(lines, dt_limite, mois_dict, resultats, existing_datetimes):
 
     for i, ligne in enumerate(lines):
         match_date = date_pattern.search(ligne)
-        if not match_date:
-            continue
-
+        if not match_date: continue
         date_str = match_date.group(0)
         dt_ligne = convertir_date_fr(date_str)
-        if dt_ligne and dt_ligne.date() == today:
-            continue
+        if dt_ligne and dt_ligne.date() == today: continue
         if dt_ligne and dt_limite and dt_ligne <= dt_limite:
             stop_execution = True
             break
-
         valeur = None
         for j in range(i, min(i + 12, len(lines))):
             candidate = lines[j]
-            if "indisponible" in candidate.lower():
-                continue
+            if j > i and date_pattern.search(candidate): break
+            if "indisponible" in candidate.lower(): break
             val_match = value_pattern.search(candidate)
             if val_match:
-                val_str = val_match.group('val').replace('\u00A0', '').replace(' ', '').replace(',', '.')
                 try:
-                    valeur = float(val_str)
+                    valeur = float(val_match.group('val').replace('\u00A0', '').replace(' ', '').replace(',', '.'))
                     break
-                except ValueError:
-                    continue
-
+                except ValueError: continue
         if valeur is not None and dt_ligne:
-            day = match_date.group('day').zfill(2)
-            month = mois_dict.get(match_date.group('month').lower(), '01')
-            year = match_date.group('year')
-            datetime_jeedom = f"{year}-{month}-{day} 23:59:59"
+            datetime_jeedom = f"{match_date.group('year')}-{mois_dict.get(match_date.group('month').lower(), '01')}-{match_date.group('day').zfill(2)} 23:59:59"
             if datetime_jeedom not in existing_datetimes:
                 existing_datetimes.add(datetime_jeedom)
                 resultats.append({'conso': valeur, 'date': date_str, 'datetime': datetime_jeedom})
-                log_debug(f"   -> 🎯 Trouvé : {date_str} - {valeur} L")
-
+                log_debug(f"   -> [DOM] Trouvé : {date_str} - {valeur} L")
     return stop_execution
 
-
+# ==========================================
+# === FONCTION PRINCIPALE ===
+# ==========================================
 def run():
+    if DEBUG_MODE:
+        save_debug_file('run_started', {
+            'run_id': RUN_ID,
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'debug_path': DEBUG_PATH,
+            'status': 'started'
+        }, 'json')
+
     maintenant = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_debug(f"=== SCRIPT Abaqua {VERSION} === {maintenant} ---")
+    log_debug(f"   -> Debug capture: {'ON' if DEBUG_MODE else 'OFF'}")
 
-    # --- LOGIQUE DE DATE LIMITE ---
     date_limite_str = sys.argv[3].strip() if len(sys.argv) > 3 and sys.argv[3].strip() else None
     dt_limite = convertir_date_fr(date_limite_str) if date_limite_str else None
     
-    if dt_limite:
-        log_debug(f"   -> Date limite reçue de Jeedom : {date_limite_str}")
-    else:
-        log_debug("   -> Aucune date limite reçue (Mode dynamique activé)")
-        
-    log_debug(f"   -> Fournisseur ciblé : {ABAQUA_URL}")
-    # --------------------------------
+    if dt_limite: log_debug(f"   -> Date limite : {date_limite_str}")
+    else: log_debug("   -> Aucune date limite (Mode dynamique)")
 
-    stop_execution = False
     resultats = []
-    pages_vides_consecutives = 0
+    api_responses = []
+    api_seen_dates = set()
     
-    mois_dict = {"janvier":"01", "février":"02", "fevrier":"02", "mars":"03", "avril":"04", "mai":"05", "juin":"06", "juillet":"07", "août":"08", "aout":"08", "septembre":"09", "octobre":"10", "novembre":"11", "décembre":"12", "decembre":"12"}
-
-    # --- DÉBUT DU BLOC DE SÉCURITÉ ---
     current_page = None
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(
-                headless=True,
-                args=["--disable-blink-features=AutomationControlled"]
-            )
-            
-            context = browser.new_context(
-                locale="fr-FR", 
-                timezone_id="Europe/Paris",
-                viewport={"width": 1920, "height": 1080},
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            )
-            
+            browser = p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"])
+            context = browser.new_context(locale="fr-FR", timezone_id="Europe/Paris", viewport={"width": 1920, "height": 1080}, user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
             page = context.new_page()
             current_page = page
             page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
+            # --- RADAR GLOBAL PERMANENT ---
+            def handle_response(response):
+                url = (response.url or '').lower()
+                if "/journalieres" in url and "consommations/" in url and response.status == 200:
+                    try:
+                        data = response.json()
+                        if isinstance(data, list):
+                            for item in data:
+                                if not isinstance(item, dict):
+                                    continue
+                                date_releve = item.get('date_releve')
+                                if not date_releve:
+                                    continue
+                                if date_releve in api_seen_dates:
+                                    continue
+                                api_seen_dates.add(date_releve)
+                                api_responses.append(item)
+                            log_debug(f"   -> 📡 API : Bloc intercepté ({len(data)} jours). Total cumulé : {len(api_responses)}")
+                    except Exception as e:
+                        log_debug(f"   -> ⚠️ API : Erreur de lecture JSON - {e}")
+
+            page.on("response", handle_response)
+            # ------------------------------
+
             log_debug("1. Connexion...")
             page.goto(f"https://{ABAQUA_URL}/callback?action=login")
-            try: 
-                page.locator("button:has-text('Accepter')").first.click(timeout=3000)
-            except: 
-                pass 
+            try: page.locator("button:has-text('Accepter')").first.click(timeout=3000)
+            except: pass 
             
-            page.wait_for_selector("input[type='email'], input[name*='mail'], #username")
             page.fill("input[type='email'], input[name*='mail'], #username", ABAQUA_EMAIL)
             page.fill("input[type='password']", ABAQUA_PASSWORD)
-            
             page.keyboard.press("Enter")
             page.wait_for_timeout(5000)
 
             if is_login_page(page):
-                log_debug("[py] Échec d'authentification : la page de connexion est encore affichée après soumission.")
-                if DEBUG_MODE:
-                    saved = save_debug_file('login_error_page', page.content(), 'html')
-                    if saved:
-                        log_debug(f"[py] Capture HTML d'échec d'authentification sauvegardée dans : {saved}")
+                log_debug("   -> ❌ Échec d'authentification : la page de connexion est encore affichée.")
+                saved = save_debug_file('login_error_page', page.content(), 'html')
+                if saved:
+                    log_debug(f"   -> Debug : page de login sauvegardée dans {saved}")
                 print(json.dumps([]))
                 sys.exit(1)
 
-            log_debug("2. Navigation...")
-            page.wait_for_load_state("domcontentloaded")
+            log_debug("2. Navigation vers la consommation...")
             page.goto(f"https://{ABAQUA_URL}/consommation")
             page.wait_for_load_state("domcontentloaded")
-            time.sleep(3)
-
-            if is_login_page(page):
-                log_debug("[py] Redirection vers la page de connexion détectée après accès à la consommation : le site n'a pas validé la session.")
-                if DEBUG_MODE:
-                    saved = save_debug_file('consumption_login_redirect', page.content(), 'html')
-                    if saved:
-                        log_debug(f"[py] Capture HTML de redirection vers login sauvegardée dans : {saved}")
-                print(json.dumps([]))
-                sys.exit(1)
+            page.wait_for_timeout(2000)
             
-            try: 
-                page.locator("text='Du mois'").first.click(timeout=5000)
-                log_debug("   -> Bouton 'Du mois' cliqué avec succès.")
-            except Exception as e: 
-                log_debug(f"   -> ⚠️ Attention: Impossible de cliquer sur 'Du mois'. ({e})")
-            time.sleep(5)
+            try: page.locator("text='Du mois'").first.click(timeout=5000)
+            except: pass
             
-            log_debug("3. Extraction des données...")
-            existing_datetimes = set()
-            while True:
-                lignes = get_page_lines(page)
-                
-                resultats_avant_page = len(resultats)
-                stop_execution = extract_results(lignes, dt_limite, mois_dict, resultats, existing_datetimes)
-
-                if stop_execution:
-                    log_debug(f"   -> Date limite atteinte. Arrêt normal.")
+            # Attente initiale confortable pour laisser le premier mois charger
+            log_debug("   -> Attente initiale des données API...")
+            for _ in range(30):
+                if api_responses:
                     break
-                
-                # Gestion dynamique si aucune date limite n'a été fournie
-                resultats_apres_page = len(resultats)
-                if not dt_limite:
-                    if resultats_apres_page == resultats_avant_page:
-                        pages_vides_consecutives += 1
-                        log_debug(f"   -> ℹ️ Page sans donnée exploitable (Compteur vide : {pages_vides_consecutives})")
-                        if pages_vides_consecutives >= 2:  
-                            log_debug("   -> 🛑 Fin de l'historique réel atteinte (Mode dynamique). Arrêt.")
-                            break
-                    else:
-                        pages_vides_consecutives = 0 
+                page.wait_for_timeout(1000)
 
-                if click_previous_page(page):
-                    log_debug("   -> Clic sur la page précédente détecté.")
-                    time.sleep(5)
-                else:
-                    log_debug("   -> Bouton précédent introuvable ou pagination terminée.")
-                    break
-            
-            if not resultats:
-                if stop_execution:
-                    log_debug("   -> ℹ️ Bilan : Aucune nouvelle donnée à récupérer, Jeedom est déjà à jour.")
-                else:
-                    log_debug("   -> ⚠️ Bilan : Aucun relevé n'a pu être extrait.")
-                    if DEBUG_MODE and current_page is not None:
+            # --- METHODE 1 : TRAITEMENT DE L'API ---
+            if api_responses:
+                log_debug("3. 🟢 UTILISATION DES DONNÉES API (Mode Global Stable)")
+                existing_datetimes = set()
+                today = datetime.now().date()
+                
+                stop_execution = False
+                pages_vides = 0
+                
+                while not stop_execution:
+                    sorted_days = []
+                    for jour in api_responses:
+                        date_releve = jour.get('date_releve')
+                        conso_dict = jour.get('consommation')
+                        if not date_releve or not conso_dict:
+                            continue
+                        litre = conso_dict.get('litre')
+                        if litre is None:
+                            continue
+
                         try:
-                            html = current_page.content()
-                            saved = save_debug_file('empty_page', html, 'html')
-                            if saved:
-                                log_debug(f"[py] Page HTML vide/inexploitée sauvegardée dans : {saved}")
-                        except Exception as exc:
-                            log_debug(f"[py] Impossible de sauvegarder la page vide : {exc}")
-            else:
-                log_debug(f"   -> ✅ Bilan : {len(resultats)} nouvelle(s) valeur(s) extraite(s).")
+                            dt_ligne = datetime.strptime(date_releve[:10], "%Y-%m-%d")
+                        except ValueError:
+                            log_debug(f"   -> ⚠️ API : date invalide ignorée ({date_releve})")
+                            continue
 
+                        sorted_days.append((dt_ligne, date_releve[:10], litre))
+
+                    sorted_days.sort(key=lambda x: x[0], reverse=True)
+
+                    for dt_ligne, date_releve, litre in sorted_days:
+                        if dt_ligne.date() == today:
+                            continue
+
+                        if dt_limite and dt_ligne <= dt_limite:
+                            stop_execution = True
+                            break
+
+                        datetime_jeedom = f"{date_releve} 23:59:59"
+                        if datetime_jeedom not in existing_datetimes:
+                            existing_datetimes.add(datetime_jeedom)
+                            resultats.append({'conso': float(litre), 'date': date_releve, 'datetime': datetime_jeedom})
+                            log_debug(f"   -> 🎯 API : {date_releve} - {litre} L")
+
+                    if stop_execution:
+                        log_debug("   -> Date limite atteinte via API.")
+                        break
+                        
+                    # Pagination sécurisée
+                    taille_api_avant_clic = len(api_responses)
+                    if click_previous_page(page):
+                        log_debug("   -> Demande du mois précédent...")
+                        
+                        # On attend que le radar attrape de nouvelles données (10s max)
+                        attente_reseau = 0
+                        while len(api_responses) == taille_api_avant_clic and attente_reseau < 10:
+                            page.wait_for_timeout(1000)
+                            attente_reseau += 1
+                        
+                        # Si au bout de 10s la taille de api_responses n'a pas bougé, c'est qu'il n'y a plus de mois dispo
+                        if len(api_responses) == taille_api_avant_clic:
+                            pages_vides += 1
+                            log_debug(f"   -> ℹ️ Pas de nouveau mois reçu (Compteur vide : {pages_vides})")
+                            if pages_vides >= 2:
+                                log_debug("   -> 🛑 Fin de l'historique API atteinte.")
+                                break
+                        else:
+                            pages_vides = 0
+                    else:
+                        log_debug("   -> 🛑 Bouton précédent introuvable ou fin de pagination.")
+                        break
+
+            # --- METHODE 2 : FALLBACK DOM ---
+            else:
+                log_debug("3. 🟠 API INTROUVABLE : Bascule sur le Fallback DOM")
+                saved = save_debug_file('api_missing_page', page.content(), 'html')
+                if saved:
+                    log_debug(f"   -> Debug : page sans API sauvegardée dans {saved}")
+                existing_datetimes = set()
+                stop_execution = False
+                pages_vides = 0
+                mois_dict = {"janvier":"01", "février":"02", "fevrier":"02", "mars":"03", "avril":"04", "mai":"05", "juin":"06", "juillet":"07", "août":"08", "aout":"08", "septembre":"09", "octobre":"10", "novembre":"11", "décembre":"12", "decembre":"12"}
+
+                while True:
+                    lignes = get_page_lines(page)
+                    resultats_avant = len(resultats)
+                    stop_execution = extract_results_dom(lignes, dt_limite, mois_dict, resultats, existing_datetimes)
+
+                    if stop_execution:
+                        break
+                    
+                    if not dt_limite:
+                        if len(resultats) == resultats_avant:
+                            pages_vides += 1
+                            if pages_vides >= 2: break
+                        else:
+                            pages_vides = 0 
+
+                    if click_previous_page(page):
+                        page.wait_for_timeout(4000)
+                    else:
+                        break
+
+            # --- BILAN ---
+            if resultats: log_debug(f"   -> ✅ Bilan : {len(resultats)} nouvelle(s) valeur(s).")
+            else: log_debug("   -> ℹ️ Bilan : Aucune nouvelle donnée (ou déjà à jour).")
+
+            if DEBUG_MODE:
+                snapshot = {
+                    'run_id': RUN_ID,
+                    'provider': ABAQUA_URL,
+                    'date_limite': date_limite_str,
+                    'api_days_captured': len(api_responses),
+                    'result_count': len(resultats),
+                    'status': 'success',
+                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                }
+                save_debug_file('run_summary', snapshot, 'json')
+            
             browser.close()
-    except Exception as exc:
-        log_debug(f"[py] Erreur critique du scraping : {exc}")
-        traceback.print_exc(file=sys.stderr)
-        if DEBUG_MODE and current_page is not None:
+            log_debug(f"\n--- Fin du script ---\n")
+
+    except Exception as e:
+        log_debug(f"\n❌ ERREUR CRITIQUE : {e}\n{traceback.format_exc()}")
+        if current_page is not None:
             try:
                 saved = save_debug_file('error_page', current_page.content(), 'html')
                 if saved:
-                    log_debug(f"[py] Capture HTML d'erreur de scraping sauvegardée dans : {saved}")
+                    log_debug(f"   -> Debug : page d'erreur sauvegardée dans {saved}")
             except Exception:
                 pass
-        debug_payload = {
-            'error': str(exc),
+        save_debug_file('error_context', {
+            'run_id': RUN_ID,
+            'error': str(e),
             'traceback': traceback.format_exc(),
-            'url': f'https://{ABAQUA_URL}/consommation',
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-        saved = save_debug_file('error', debug_payload, 'json')
-        if saved:
-            log_debug(f"[py] Payload JSON de debug sauvegardé dans : {saved}")
+            'provider': ABAQUA_URL,
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        }, 'json')
         print(json.dumps([]))
         sys.exit(1)
 
-    maintenant = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log_debug(f"\n---Fin du script normale: {maintenant} ---\n")
     print(json.dumps(resultats))
 
 if __name__ == "__main__":

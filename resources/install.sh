@@ -7,9 +7,12 @@ set -e
 export CI=1
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGIN_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 LOG_DIR="/var/www/html/log"
 LOG_FILE="$LOG_DIR/abaqua_dep"
-PLAYWRIGHT_BROWSERS_PATH="/var/www/.cache/ms-playwright"
+DATA_DIR="$PLUGIN_DIR/data"
+PLAYWRIGHT_BROWSERS_PATH="$DATA_DIR/ms-playwright"
+VENV_DIR="$PLUGIN_DIR/resources/abaqua_venv"
 
 MODE="foreground"
 PROGRESS_FILE=""
@@ -167,7 +170,6 @@ fi
 write_progress 30
 
 echo "-> Nettoyage de l'ancien environnement virtuel..."
-VENV_DIR="/var/www/abaqua_venv"
 $SUDO rm -rf "$VENV_DIR"
 write_progress 40
 
@@ -185,6 +187,7 @@ run_cmd "$VENV_DIR/bin/playwright" install-deps chromium
 write_progress 70
 
 echo "-> Préparation du répertoire de destination..."
+$SUDO mkdir -p "$DATA_DIR"
 $SUDO mkdir -p "$PLAYWRIGHT_BROWSERS_PATH"
 write_progress 80
 
@@ -195,7 +198,7 @@ write_progress 90
 
 echo "-> Attribution des droits finaux..."
 $SUDO chown -R www-data:www-data "$VENV_DIR" || true
-$SUDO chown -R www-data:www-data "/var/www/.cache" || true
+$SUDO chown -R www-data:www-data "$DATA_DIR" || true
 write_progress 100
 
 echo "-> Installation du widget dashboard Abaqua..."

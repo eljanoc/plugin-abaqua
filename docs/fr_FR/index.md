@@ -21,7 +21,7 @@ Lors de l'installation des dépendances, le plugin va automatiquement :
 ## Configuration du plugin
 Après avoir téléchargé et activé le plugin, aucune configuration générale n'est requise au niveau de la page de gestion des plugins. La configuration se fait équipement par équipement.
 
-Depuis la version actuelle, un champ global **Chemin vers Python** est disponible dans la page de configuration du plugin. Il permet de pointer vers l'interpréteur Python utilisé par Abaqua, par exemple : `/var/www/abaqua_venv/bin/python`.
+Depuis la version actuelle, un champ global **Chemin vers Python** est disponible dans la page de configuration du plugin. Il permet de pointer vers l'interpréteur Python utilisé par Abaqua, par exemple : `/var/www/html/plugins/abaqua/resources/abaqua_venv/bin/python`.
 
 ## Configuration des équipements
 Rendez-vous dans le menu **Plugins** > **Énergie** (ou la catégorie que vous avez choisie) > **Abaqua**.
