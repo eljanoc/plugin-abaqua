@@ -1,6 +1,6 @@
 # Changelog Abaqua
 
-## Version 2.2.1 (Beta)
+## Version 2.2.1 (Stable)
 * Déplacement du virtualenv Python dans le plugin, sous `resources/abaqua_venv`.
 * Déplacement du cache Playwright dans le dossier Plugin `data/ms-playwright` pour éviter les artefacts globaux dans `/var/www`.
 * Correction des chemins runtime pour que le script Python et le cache navigateur utilisent le même répertoire local au plugin.
