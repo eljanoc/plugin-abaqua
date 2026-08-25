@@ -3,6 +3,13 @@ require_once dirname(__FILE__) . '/../../../../core/php/core.inc.php';
 
 class abaqua extends eqLogic {
 
+    public static function backupExclude() {
+        return [
+            'resources/abaqua_venv',
+            'data'
+        ];
+    }
+
     // --- 1. GESTION DES DEPENDANCES ---
     
     private static function getPluginBasePath() {
@@ -17,13 +24,18 @@ class abaqua extends eqLogic {
             return $configuredPath;
         }
 
-        $externalPath = '/var/www/abaqua_venv/bin/python';
-        if (file_exists($externalPath)) {
-            return $externalPath;
+        $pluginPath = self::getPluginBasePath();
+        $resourcesVenvPath = $pluginPath . '/resources/abaqua_venv/bin/python';
+        if (file_exists($resourcesVenvPath)) {
+            return $resourcesVenvPath;
         }
 
-        $pluginPath = self::getPluginBasePath();
-        return $pluginPath . '/abaqua_venv/bin/python';
+        $dataVenvPath = $pluginPath . '/data/abaqua_venv/bin/python';
+        if (file_exists($dataVenvPath)) {
+            return $dataVenvPath;
+        }
+
+        return $resourcesVenvPath;
     }
 
 
@@ -236,7 +248,7 @@ class abaqua extends eqLogic {
         $processEnv['ABAQUA_EMAIL'] = $username;
         $processEnv['ABAQUA_PASSWORD'] = $password;
         $processEnv['ABAQUA_DEBUG_MODE'] = (config::byKey('debugMode', 'abaqua', 0) ? '1' : '0');
-        $processEnv['ABAQUA_DEBUG_PATH'] = config::byKey('debugPath', 'abaqua', '/var/www/html/log');
+        $processEnv['ABAQUA_DEBUG_PATH'] = config::byKey('debugPath', 'abaqua', dirname(__DIR__, 2) . '/data/debug');
         $processEnv['ABAQUA_DEBUG_MAX_FILES'] = (string) max(1, intval(config::byKey('debugMaxFiles', 'abaqua', 20)));
 
         $process = proc_open($cmd, $descriptorspec, $pipes, null, $processEnv);
