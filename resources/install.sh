@@ -188,12 +188,18 @@ write_progress 70
 
 echo "-> Préparation du répertoire de destination..."
 $SUDO mkdir -p "$DATA_DIR"
+$SUDO rm -rf "$PLAYWRIGHT_BROWSERS_PATH"
 $SUDO mkdir -p "$PLAYWRIGHT_BROWSERS_PATH"
 write_progress 80
 
 echo "-> Téléchargement du navigateur Chromium..."
 export PLAYWRIGHT_BROWSERS_PATH="$PLAYWRIGHT_BROWSERS_PATH"
 run_cmd PLAYWRIGHT_BROWSERS_PATH="$PLAYWRIGHT_BROWSERS_PATH" "$VENV_DIR/bin/playwright" install chromium
+if [ ! -d "$PLAYWRIGHT_BROWSERS_PATH" ] || ! find "$PLAYWRIGHT_BROWSERS_PATH" -maxdepth 3 -type f | grep -q "chrome\|chromium"; then
+    echo "Erreur : installation du navigateur Chromium incomplète dans $PLAYWRIGHT_BROWSERS_PATH."
+    write_progress 100
+    exit 1
+fi
 write_progress 90
 
 echo "-> Attribution des droits finaux..."

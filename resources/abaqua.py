@@ -4,12 +4,15 @@ import time
 import re
 import os
 import json
+import shutil
+import subprocess
 import traceback
 from datetime import datetime
 from playwright.sync_api import sync_playwright
 
 PLUGIN_DATA_DIR = '/var/www/html/plugins/abaqua/data'
-os.environ.setdefault('PLAYWRIGHT_BROWSERS_PATH', os.path.join(PLUGIN_DATA_DIR, 'ms-playwright'))
+PLAYWRIGHT_BROWSERS_PATH = os.environ.get('PLAYWRIGHT_BROWSERS_PATH') or os.path.join(PLUGIN_DATA_DIR, 'ms-playwright')
+os.environ.setdefault('PLAYWRIGHT_BROWSERS_PATH', PLAYWRIGHT_BROWSERS_PATH)
 
 RUN_ID = datetime.now().strftime('%Y%m%d%H%M%S')
 DEBUG_MODE = str(os.environ.get('ABAQUA_DEBUG_MODE', '0')).strip().lower() in ('1', 'true', 'yes', 'on')
@@ -65,6 +68,52 @@ def save_debug_file(name, payload, kind='txt'):
     except Exception as exc:
         log_debug(f"   -> ⚠️ Debug : erreur d'écriture capture ({exc})")
         return None
+
+
+def browser_binary_exists(path):
+    if not path or not os.path.isdir(path):
+        return False
+    for root, _, files in os.walk(path):
+        for name in ('chrome', 'chrome-headless-shell', 'chromium', 'chromium-browser'):
+            candidate = os.path.join(root, name)
+            if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+                return True
+    return False
+
+
+def ensure_playwright_browser():
+    if browser_binary_exists(PLAYWRIGHT_BROWSERS_PATH):
+        return True
+
+    log_debug(f"   -> Mise à jour du cache Playwright : {PLAYWRIGHT_BROWSERS_PATH}")
+    try:
+        if os.path.isdir(PLAYWRIGHT_BROWSERS_PATH):
+            shutil.rmtree(PLAYWRIGHT_BROWSERS_PATH)
+        os.makedirs(PLAYWRIGHT_BROWSERS_PATH, exist_ok=True)
+
+        env = os.environ.copy()
+        env['PLAYWRIGHT_BROWSERS_PATH'] = PLAYWRIGHT_BROWSERS_PATH
+        result = subprocess.run(
+            [sys.executable, '-m', 'playwright', 'install', 'chromium'],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            log_debug(f"   -> Erreur Playwright install: {result.stderr.strip() or result.stdout.strip()}")
+            return False
+
+        if browser_binary_exists(PLAYWRIGHT_BROWSERS_PATH):
+            log_debug('   -> Cache Playwright réparé avec succès.')
+            return True
+
+        log_debug('   -> Le cache Playwright est toujours vide après installation.')
+        return False
+    except Exception as exc:
+        log_debug(f"   -> ⚠️ Réparation Playwright impossible : {exc}")
+        return False
 
 # === IDENTIFICATION DU SCRIPT ===
 VERSION = "3.3_DEBUG_PATH_STABLE"
@@ -215,7 +264,12 @@ def run():
     resultats = []
     api_responses = []
     api_seen_dates = set()
-    
+
+    if not ensure_playwright_browser():
+        log_debug('   -> Impossible de lancer Playwright : navigateur Chromium absent ou invalide.')
+        print(json.dumps([]))
+        return
+
     current_page = None
     try:
         with sync_playwright() as p:
