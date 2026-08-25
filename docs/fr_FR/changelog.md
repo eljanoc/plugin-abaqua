@@ -1,6 +1,6 @@
 # Changelog Abaqua
 
-## Version 2.2.2 (Beta)
+## Version 2.2.2 (Stable)
 * Réinstallation obligatoire des dépendances lors de la mise à jour vers cette version afin de supprimer les anciens caches Playwright et le venv obsolète.
 * Déplacement du virtualenv Python dans le plugin, sous `resources/abaqua_venv`.
 * Déplacement du cache Playwright dans le dossier Plugin `data/ms-playwright` pour éviter les artefacts globaux dans `/var/www`.
