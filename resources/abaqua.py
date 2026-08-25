@@ -8,11 +8,12 @@ import traceback
 from datetime import datetime
 from playwright.sync_api import sync_playwright
 
-os.environ.setdefault('PLAYWRIGHT_BROWSERS_PATH', '/var/www/.cache/ms-playwright')
+PLUGIN_DATA_DIR = '/var/www/html/plugins/abaqua/data'
+os.environ.setdefault('PLAYWRIGHT_BROWSERS_PATH', os.path.join(PLUGIN_DATA_DIR, 'ms-playwright'))
 
 RUN_ID = datetime.now().strftime('%Y%m%d%H%M%S')
 DEBUG_MODE = str(os.environ.get('ABAQUA_DEBUG_MODE', '0')).strip().lower() in ('1', 'true', 'yes', 'on')
-DEBUG_PATH = os.environ.get('ABAQUA_DEBUG_PATH', '/var/www/html/log').strip() or '/var/www/html/log'
+DEBUG_PATH = os.environ.get('ABAQUA_DEBUG_PATH', '/var/www/html/plugins/abaqua/data/debug').strip() or '/var/www/html/plugins/abaqua/data/debug'
 DEBUG_FILE_PREFIX = 'abaqua_debug_'
 try:
     DEBUG_MAX_FILES = max(1, int(os.environ.get('ABAQUA_DEBUG_MAX_FILES', '20')))
@@ -66,7 +67,7 @@ def save_debug_file(name, payload, kind='txt'):
         return None
 
 # === IDENTIFICATION DU SCRIPT ===
-VERSION = "3.2_LOCKED_RUNID_STABLE"
+VERSION = "3.3_DEBUG_PATH_STABLE"
 # ================================
 
 legacy_email = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -193,6 +194,14 @@ def extract_results_dom(lines, dt_limite, mois_dict, resultats, existing_datetim
 # === FONCTION PRINCIPALE ===
 # ==========================================
 def run():
+    if DEBUG_MODE:
+        save_debug_file('run_started', {
+            'run_id': RUN_ID,
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'debug_path': DEBUG_PATH,
+            'status': 'started'
+        }, 'json')
+
     maintenant = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_debug(f"=== SCRIPT Abaqua {VERSION} === {maintenant} ---")
     log_debug(f"   -> Debug capture: {'ON' if DEBUG_MODE else 'OFF'}")
@@ -387,6 +396,7 @@ def run():
                     'date_limite': date_limite_str,
                     'api_days_captured': len(api_responses),
                     'result_count': len(resultats),
+                    'status': 'success',
                     'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 }
                 save_debug_file('run_summary', snapshot, 'json')

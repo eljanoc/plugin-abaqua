@@ -1,5 +1,16 @@
 # Changelog Abaqua
 
+## Version 2.2.1 (Beta)
+* Déplacement du virtualenv Python dans le plugin, sous `resources/abaqua_venv`.
+* Déplacement du cache Playwright dans le dossier Plugin `data/ms-playwright` pour éviter les artefacts globaux dans `/var/www`.
+* Correction des chemins runtime pour que le script Python et le cache navigateur utilisent le même répertoire local au plugin.
+* Exclusion des dossiers de runtime du plugin de la sauvegarde Jeedom via la méthode `backupExclude()`.
+* Le dossier de debug est désormais écrit dans `plugins/abaqua/data/debug` et le chemin est rendu lisible dans la configuration.
+* Ajout d'un fichier de démarrage et de résumé de debug pour valider le bon fonctionnement du mode debug même sans erreur.
+* Nettoyage des références obsolètes vers `/var/www/.cache/ms-playwright` et des anciennes config de chemin Python dans l'interface.
+* Mise à jour de la version interne Python pour refléter le correctif de debug et le nouveau layout du runtime.
+* Nettoyage automatique des anciens chemins de runtime lors de la mise à jour ou de la réinstallation du plugin, sans action manuelle côté utilisateur.
+
 ## Version 2.1.1 (Beta)
 * Ajout d'un verrou d'exécution côté plugin pour empêcher les synchronisations concurrentes sur un même équipement.
 * Correction des explorations en double causées par des lancements simultanés du script Python.
