@@ -1,0 +1,117 @@
+<div class="cmd cmd-widget" data-type="action" data-subtype="other" data-cmd_id="#id#">
+    <a class="btn btn-sm btn-default" style="cursor:pointer;" id="abaqua-log-btn-#id#">
+        Log
+    </a>
+
+    <script>
+        (function() {
+            var cmdDiv = document.querySelector('.cmd[data-cmd_id="#id#"]');
+            if (!cmdDiv) return;
+
+            var button = cmdDiv.querySelector('#abaqua-log-btn-#id#');
+            if (!button || button.getAttribute('data-abaqua-bound') === '1') return;
+            button.setAttribute('data-abaqua-bound', '1');
+
+            function getEqLogicId() {
+                var tuile = cmdDiv.closest('.eqLogic-widget, .eqLogic, [data-eqLogic_id], [data-eqlogic_id]');
+                return tuile ? (tuile.getAttribute('data-eqLogic_id') || tuile.getAttribute('data-eqlogic_id') || '') : '';
+            }
+
+            // --- 2. OUVERTURE DE LA FENÊTRE STANDARD JEEDOM ---
+            function ouvrirModalNative(logName) {
+                var normalizedLogName = String(logName || '').trim();
+                if (normalizedLogName === '') return;
+
+                var modal = $('#md_modal');
+                var stopExistingLogRefresh = function() {
+                    var control = document.getElementById('bt_eventLogStopStart');
+                    if (control && control.getAttribute('data-state') == '1') {
+                        control.setAttribute('data-state', '0');
+                        if (window.jeedom && jeedom.log && typeof jeedom.log.updateBtn === 'function') {
+                            jeedom.log.updateBtn(control);
+                        }
+                    }
+                    if (window.jeedom && jeedom.log && jeedom.log.timeout !== null) {
+                        clearTimeout(jeedom.log.timeout);
+                        jeedom.log.timeout = null;
+                    }
+                };
+
+                stopExistingLogRefresh();
+                modal.dialog({
+                    title: 'Log de l\'équipement ' + normalizedLogName,
+                    width: 800,
+                    height: 600
+                }).dialog('open');
+
+                modal.load('index.php?v=d&modal=log.display&log=' + encodeURIComponent(normalizedLogName), function() {
+                    var display = document.getElementById('pre_eventlog');
+                    var modalContent = document.getElementById('md_modal');
+                    
+                    // --- SCROLL AUTO CONTINU ---
+                    if (display) {
+                        // La fonction qui pousse le curseur tout en bas
+                        var forceScroll = function() {
+                            display.scrollTop = display.scrollHeight;
+                            if (modalContent) {
+                                modalContent.scrollTop = modalContent.scrollHeight;
+                            }
+                        };
+
+                        // On force dès l'ouverture
+                        forceScroll();
+
+                        // On observe les changements en permanence
+                        var observer = new MutationObserver(forceScroll);
+                        observer.observe(display, { childList: true, characterData: true, subtree: true });
+                        
+                        // On nettoie proprement l'observateur quand on ferme la fenêtre modale
+                        modal.one('dialogclose', function() {
+                            observer.disconnect();
+                            stopExistingLogRefresh();
+                        });
+                    }
+                });
+            }
+
+            function demanderNomLogManuel() {
+                var nomDuLog = prompt("Impossible de récupérer automatiquement le log. Saisis le nom du fichier (ex: abaqua_maison) :");
+                if (nomDuLog) ouvrirModalNative(nomDuLog.trim());
+            }
+
+            function ouvrirLog() {
+                var eqLogicId = getEqLogicId();
+                if (!eqLogicId) {
+                    demanderNomLogManuel();
+                    return;
+                }
+
+                // --- 3. APPEL AU BACKEND POUR AVOIR LE NOM EXACT ---
+                $.ajax({
+                    url: 'plugins/abaqua/core/ajax/abaqua.ajax.php',
+                    type: 'POST',
+                    dataType: 'json',
+                    data: {
+                        action: 'getEquipmentLogName',
+                        eqLogic_id: eqLogicId
+                    },
+                    success: function(response) {
+                        if (response && response.state === 'ok' && response.result) {
+                            ouvrirModalNative(String(response.result));
+                        } else if (typeof response === 'string' && response.trim() !== '') {
+                            ouvrirModalNative(response.trim());
+                        } else {
+                            demanderNomLogManuel();
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        alert('Erreur AJAX : ' + (error || status));
+                        demanderNomLogManuel();
+                    }
+                });
+            }
+
+            button.addEventListener('click', ouvrirLog);
+        })();
+    </script>
+</div>
